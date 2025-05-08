@@ -43,9 +43,4 @@ class AuthController extends Controller
 
         return response()->json(compact('token'));
     }
-
-    public function me()
-    {
-        return response()->json(auth()->user());
-    }
 }

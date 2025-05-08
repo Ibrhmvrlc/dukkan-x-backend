@@ -36,11 +36,17 @@ return [
     */
 
     'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
         'api' => [
-            'driver' => 'jwt',
+            'driver' => 'jwt', // ← BUNUN 'jwt' OLMASI ŞART
             'provider' => 'users',
         ],
     ],
+
 
     /*
     |--------------------------------------------------------------------------
