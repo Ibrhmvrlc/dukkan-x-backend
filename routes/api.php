@@ -30,3 +30,5 @@ Route::get('/me', function (Request $request) {
         return response()->json(['error' => $e->getMessage()], 500);
     }
 })->middleware('auth:api');
+
+Route::middleware('auth:api')->post('/refresh', [\App\Http\Controllers\AuthController::class, 'refresh']);
