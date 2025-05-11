@@ -53,5 +53,4 @@ class AuthController extends Controller
             return response()->json(['error' => 'Invalid token'], 401);
         }
     }
-
 }

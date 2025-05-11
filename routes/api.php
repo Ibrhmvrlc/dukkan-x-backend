@@ -31,4 +31,12 @@ Route::get('/me', function (Request $request) {
     }
 })->middleware('auth:api');
 
-Route::middleware('auth:api')->post('/refresh', [\App\Http\Controllers\AuthController::class, 'refresh']);
+Route::post('/refresh', function () {
+    try {
+        return response()->json([
+            'token' => auth()->refresh()
+        ]);
+    } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
+        return response()->json(['error' => 'Refresh failed'], 401);
+    }
+})->middleware('auth:api');
