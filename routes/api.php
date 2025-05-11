@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\MusteriNotController;
+use App\Http\Controllers\Api\MusteriTurleriController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -40,3 +42,22 @@ Route::post('/refresh', function () {
         return response()->json(['error' => 'Refresh failed'], 401);
     }
 })->middleware('auth:api');
+
+Route::middleware('auth:api')->prefix('v1')->group(function () {
+    Route::apiResource('musteriler', \App\Http\Controllers\Api\MusterilerController::class);
+});
+
+Route::middleware('auth:api')->prefix('v1')->group(function () {
+    Route::get('musteriler/{musteri}/notlar', [MusteriNotController::class, 'index']);
+    Route::post('musteriler/{musteri}/notlar', [MusteriNotController::class, 'store']);
+    Route::delete('musteri-notlar/{musteriNot}', [MusteriNotController::class, 'destroy']);
+});
+
+Route::middleware('auth:api')->prefix('v1')->group(function () {
+    Route::get('musteri-turleri', [MusteriTurleriController::class, 'index']);
+});
+
+Route::get('/debug/test-laravel', function () {
+    return response()->json(['message' => 'Laravel API çalışıyor']);
+});
+
