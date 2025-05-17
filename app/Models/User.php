@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Tymon\JWTAuth\Contracts\JWTSubject;
+use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
 class User extends Authenticatable implements JWTSubject
 {
@@ -13,7 +13,7 @@ class User extends Authenticatable implements JWTSubject
         'password',
     ];
     
-    public function getJWTIdentifier()
+     public function getJWTIdentifier()
     {
         return $this->getKey();
     }
@@ -32,4 +32,5 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->roles()->where('name', $roleName)->exists();
     }
+
 }

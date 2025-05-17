@@ -33,15 +33,7 @@ Route::get('/me', function (Request $request) {
     }
 })->middleware('auth:api');
 
-Route::post('/refresh', function () {
-    try {
-        return response()->json([
-            'token' => auth()->refresh()
-        ]);
-    } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
-        return response()->json(['error' => 'Refresh failed'], 401);
-    }
-})->middleware('auth:api');
+Route::post('/refresh', [AuthController::class, 'refresh']);
 
 Route::middleware('auth:api')->prefix('v1')->group(function () {
     Route::apiResource('musteriler', \App\Http\Controllers\Api\MusterilerController::class);
@@ -56,8 +48,3 @@ Route::middleware('auth:api')->prefix('v1')->group(function () {
 Route::middleware('auth:api')->prefix('v1')->group(function () {
     Route::get('musteri-turleri', [MusteriTurleriController::class, 'index']);
 });
-
-Route::get('/debug/test-laravel', function () {
-    return response()->json(['message' => 'Laravel API çalışıyor']);
-});
-

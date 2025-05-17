@@ -20,16 +20,17 @@ class Handler extends ExceptionHandler
 
     public function register(): void
     {
-        throw new \Exception('Handler dosyası aktif'); // geçici test
+        // burası boş kalabilir
     }
-
 
     protected function unauthenticated($request, AuthenticationException $exception)
     {
-        if ($request->is('api/*')) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
-    
-        return redirect()->guest('/login'); // veya bir web route'un varsa onu belirtebilirsin
+        return response()->json(['message' => 'Unauthenticated.'], 401);
     }
+
+    public function render($request, Throwable $e)
+    {
+        throw new \Exception('BU HANDLER ÇALIŞIYOR');
+    }
+
 }
