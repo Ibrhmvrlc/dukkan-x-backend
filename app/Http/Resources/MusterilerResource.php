@@ -22,7 +22,7 @@ class MusterilerResource extends JsonResource
             'email' => $this->email,
             'adres' => $this->adres,
             'aktif' => $this->aktif,
-            'musteri_tur' => $this->tur ? $this->tur->isim : null,
+            'musteri_tur' => $this->segment ? $this->segment->isim : null,
             'not_sayisi' => $this->notlar()->count(),
             'created_at' => $this->created_at->toDateTimeString(),
             'not_sayisi' => $this->notlar_count ?? 0,

@@ -25,12 +25,12 @@ class Handler extends ExceptionHandler
 
     protected function unauthenticated($request, AuthenticationException $exception)
     {
-        return response()->json(['message' => 'Unauthenticated.'], 401);
+        if ($request->wantsJson() || $request->is('api/*') || $request->ajax()) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        return redirect()->guest(route('login'));
     }
 
-    public function render($request, Throwable $e)
-    {
-        throw new \Exception('BU HANDLER ÇALIŞIYOR');
-    }
 
 }
