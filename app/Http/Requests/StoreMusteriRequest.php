@@ -38,7 +38,6 @@ class StoreMusteriRequest extends FormRequest
             'telefon' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
             'adres' => 'nullable|string',
-            'notlar' => 'nullable|string',
             'aktif' => 'boolean',
             'musteri_tur_id' => 'nullable|integer|exists:musteri_turleri,id',
         ];

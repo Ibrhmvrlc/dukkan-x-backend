@@ -11,7 +11,19 @@ class UpdateMusteriRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
+    }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('musteri_tur_id')) {
+            $this->merge([
+                'musteri_tur_id' => is_numeric($this->musteri_tur_id) ? (int) $this->musteri_tur_id : null,
+            ]);
+        }
     }
 
     /**
@@ -22,7 +34,15 @@ class UpdateMusteriRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'unvan' => 'required|string|max:255',
+            'tur' => 'required|in:bireysel,kurumsal',
+            'vergi_no' => 'nullable|string|max:50',
+            'vergi_dairesi' => 'nullable|string|max:100',
+            'telefon' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'adres' => 'nullable|string',
+            'aktif' => 'boolean',
+            'musteri_tur_id' => 'nullable|integer|exists:musteri_turleri,id',
         ];
     }
 }

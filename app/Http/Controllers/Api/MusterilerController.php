@@ -57,7 +57,7 @@ class MusterilerController extends Controller
     public function store(StoreMusteriRequest $request)
     {
         $musteri = Musteriler::create($request->validated());
-        return new MusterilerResource($musteri->load('tur'));
+        return new MusterilerResource($musteri->load('musteriTur'));
     }
 
     /**
@@ -65,7 +65,7 @@ class MusterilerController extends Controller
      */
     public function show(Musteriler $musteriler)
     {
-        return new MusterilerResource($musteriler->load('tur', 'notlar'));
+        return new MusterilerResource($musteriler->load('musteriTur'));
     }
 
     /**

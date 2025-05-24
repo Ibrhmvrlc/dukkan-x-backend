@@ -17,12 +17,18 @@ class MusterilerResource extends JsonResource
         return [
             'id' => $this->id,
             'unvan' => $this->unvan,
+            'vergi_no' => $this->vergi_no,
+            'vergi_dairesi' => $this->vergi_dairesi,
             'tur' => $this->tur,
             'telefon' => $this->telefon,
             'email' => $this->email,
             'adres' => $this->adres,
             'aktif' => $this->aktif,
-            'musteri_tur_id' => [
+            // Select input için ID
+            'musteri_tur_id' => $this->musteri_tur_id,
+
+            // Görüntüleme için ilişkili veri
+            'musteri_tur' => [
                 'id' => $this->musteriTur?->id,
                 'isim' => $this->musteriTur?->isim,
             ],
