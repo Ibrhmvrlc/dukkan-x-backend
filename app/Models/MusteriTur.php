@@ -15,4 +15,9 @@ class MusteriTur extends Model
     {
         return $this->hasMany(Musteriler::class, 'musteri_tur_id');
     }
+
+    public function turMusteri()
+    {
+        return $this->hasMany(Musteriler::class, 'musteri_tur_id');
+    }
 }

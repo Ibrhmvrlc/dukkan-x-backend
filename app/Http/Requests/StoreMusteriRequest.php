@@ -14,6 +14,15 @@ class StoreMusteriRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation()
+    {
+        if ($this->has('musteri_tur_id')) {
+            $this->merge([
+                'musteri_tur_id' => is_numeric($this->musteri_tur_id) ? (int) $this->musteri_tur_id : null,
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -31,7 +40,7 @@ class StoreMusteriRequest extends FormRequest
             'adres' => 'nullable|string',
             'notlar' => 'nullable|string',
             'aktif' => 'boolean',
-            'musteri_tur_id' => 'nullable|exists:musteri_turleri,id',
+            'musteri_tur_id' => 'nullable|integer|exists:musteri_turleri,id',
         ];
     }
 }

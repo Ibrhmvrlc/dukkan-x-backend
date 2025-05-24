@@ -15,7 +15,7 @@ class MusterilerController extends Controller
      * Display a listing of the resource.
      */
     public function index(Request $request){
-        $query = Musteriler::query()->with(['tur']);
+        $query = Musteriler::query()->with(['tur'])->with(['musteriTur']);
 
         // 1. Arama: Unvan, telefon, email alanlarında
         if ($request->filled('search')) {

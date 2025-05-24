@@ -11,9 +11,13 @@ class Musteriler extends Model
 
     protected $table = 'musteriler';
 
+    protected $casts = [
+    'musteri_tur_id' => 'integer',
+    ];
+
     protected $fillable = [
         'unvan', 'tur', 'vergi_no', 'vergi_dairesi',
-        'telefon', 'email', 'adres', 'notlar', 'aktif'
+        'telefon', 'email', 'adres', 'notlar', 'aktif', 'musteri_tur_id'
     ];
 
     public function yetkililer()
@@ -29,5 +33,10 @@ class Musteriler extends Model
     public function tur()
     {
         return $this->belongsTo(MusteriTur::class, 'musteri_tur_id');
+    }
+
+    public function musteriTur()
+    {
+        return $this->belongsTo(MusteriTur::class);
     }
 }
