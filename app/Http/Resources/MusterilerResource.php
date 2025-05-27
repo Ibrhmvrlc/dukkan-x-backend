@@ -32,6 +32,29 @@ class MusterilerResource extends JsonResource
                 'id' => $this->musteriTur?->id,
                 'isim' => $this->musteriTur?->isim,
             ],
+            'yetkililer' => $this->yetkililer->map(function ($yetkili) {
+                return [
+                    'id' => $yetkili->id,
+                    'isim' => $yetkili->isim,
+                    'musteri_id' => $yetkili->musteri_id,
+                    'telefon' => $yetkili->telefon,
+                    'email' => $yetkili->email,
+                    'pozisyon' => $yetkili->pozisyon,
+                ];
+            }),
+            'teslimat_adresleri' => $this->whenLoaded('teslimat_adresleri', function () {
+                return $this->teslimat_adresleri->map(function ($adres) {
+                    return [
+                        'id' => $adres->id,
+                        'baslik' => $adres->baslik,
+                        'adres' => $adres->adres,
+                        'ilce' => $adres->ilce,
+                        'il' => $adres->il,
+                        'posta_kodu' => $adres->posta_kodu,
+                    ];
+                });
+            }),
+
             'created_at' => $this->created_at->toDateTimeString(),
         ];
     }

@@ -65,7 +65,7 @@ class MusterilerController extends Controller
      */
     public function show(Musteriler $musteriler)
     {
-        return new MusterilerResource($musteriler->load('musteriTur'));
+        return new MusterilerResource($musteriler->load('musteriTur', 'yetkililer', 'teslimat_adresleri'));
     }
 
     /**

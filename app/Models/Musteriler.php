@@ -39,4 +39,10 @@ class Musteriler extends Model
     {
         return $this->belongsTo(MusteriTur::class);
     }
+
+    public function teslimat_adresleri()
+    {
+        return $this->hasMany(TeslimatAdresi::class, 'musteri_id');
+    }
+
 }
