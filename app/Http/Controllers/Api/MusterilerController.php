@@ -61,16 +61,6 @@ class MusterilerController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
-     */
-    public function storeYetkili(StoreMusteriRequest $request)
-    {
-        $musteri = Musteriler::create($request->validated());
-        return new MusterilerResource($musteri->load('yetkililer'));
-    }
-
-
-    /**
      * Display the specified resource.
      */
     public function show(Musteriler $musteriler)
@@ -85,15 +75,6 @@ class MusterilerController extends Controller
     {
         $musteriler->update($request->validated());
         return new MusterilerResource($musteriler->load('yetkililer'));
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function updateYetkili(UpdateMusteriRequest $request, Musteriler $musteriler)
-    {
-        $musteriler->update($request->validated());
-        return new MusterilerResource($musteriler->load('tur'));
     }
 
     /**

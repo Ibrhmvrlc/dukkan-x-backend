@@ -8,6 +8,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Api\MusteriNotController;
 use App\Http\Controllers\Api\MusteriTurleriController;
 use App\Http\Controllers\Api\MusterilerController;
+use App\Http\Controllers\Api\YetkililerController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -30,7 +31,8 @@ Route::middleware('jwt.auth')->group(function () {
 
     Route::prefix('v1')->group(function () {
         Route::apiResource('musteriler', MusterilerController::class);
-
+        Route::apiResource('yetkililer', YetkililerController::class);
+        
         Route::get('musteriler/{musteri}/notlar', [MusteriNotController::class, 'index']);
         Route::post('musteriler/{musteri}/notlar', [MusteriNotController::class, 'store']);
         Route::delete('musteri-notlar/{musteriNot}', [MusteriNotController::class, 'destroy']);
