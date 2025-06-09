@@ -12,7 +12,7 @@ class YetkililerController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'musteri_id' => 'required|exists:musterilers,id',
+            'musteri_id' => 'required|exists:musteriler,id',
             'isim' => 'required|string|max:255',
             'telefon' => 'nullable|string|max:20',
             'email' => 'nullable|email',

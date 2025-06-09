@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\MusteriNotController;
 use App\Http\Controllers\Api\MusteriTurleriController;
 use App\Http\Controllers\Api\MusterilerController;
 use App\Http\Controllers\Api\YetkililerController;
+use App\Http\Controllers\TeslimatAdresiController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -32,6 +33,7 @@ Route::middleware('jwt.auth')->group(function () {
     Route::prefix('v1')->group(function () {
         Route::apiResource('musteriler', MusterilerController::class);
         Route::apiResource('yetkililer', YetkililerController::class);
+        Route::apiResource('musteriler.teslimat-adresleri', TeslimatAdresiController::class)->only(['store', 'update', 'destroy']);
         
         Route::get('musteriler/{musteri}/notlar', [MusteriNotController::class, 'index']);
         Route::post('musteriler/{musteri}/notlar', [MusteriNotController::class, 'store']);
