@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\MusteriTurleriController;
 use App\Http\Controllers\Api\MusterilerController;
 use App\Http\Controllers\Api\YetkililerController;
 use App\Http\Controllers\TeslimatAdresiController;
+use App\Http\Controllers\Api\UrunController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -40,5 +41,7 @@ Route::middleware('jwt.auth')->group(function () {
         Route::delete('musteri-notlar/{musteriNot}', [MusteriNotController::class, 'destroy']);
 
         Route::get('musteri-turleri', [MusteriTurleriController::class, 'index']);
+
+        Route::apiResource('urunler', UrunController::class);
     });
 });
