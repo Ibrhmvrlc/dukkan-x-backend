@@ -17,10 +17,10 @@ class Urunler extends Model
         'cesit',
         'birim',
         'satis_fiyati',
-        'kdv_orani',
+        'tedarik_fiyati',
         'stok_miktari',
         'kritik_stok',
-        'tedarik_fiyati',
+        'kdv_orani',
         'aktif',
     ];
 }

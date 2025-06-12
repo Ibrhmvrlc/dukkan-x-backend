@@ -17,12 +17,10 @@ class UrunResource extends JsonResource
             'birim' => $this->birim,
             'satis_fiyati' => $this->satis_fiyati,
             'tedarik_fiyati' => $this->tedarik_fiyati,
-            'kdv_orani' => $this->kdv_orani,
             'stok_miktari' => $this->stok_miktari,
             'kritik_stok' => $this->kritik_stok,
+            'kdv_orani' => $this->kdv_orani,
             'aktif' => $this->aktif,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
         ];
     }
 }

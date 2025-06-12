@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UrunResource;
-use App\Models\Urun;
 use App\Models\Urunler;
 use Illuminate\Http\Request;
 
@@ -21,9 +20,10 @@ class UrunController extends Controller
         $data = $request->validate([
             'kod' => 'nullable|string|max:255',
             'isim' => 'required|string|max:255',
-            'aciklama' => 'nullable|string',
+            'cesit' => 'nullable|string',
             'birim' => 'required|string|max:50',
-            'fiyat' => 'required|numeric|min:0',
+            'satis_fiyati' => 'required|numeric|min:0',
+            'tedarik_fiyati' => 'required|numeric|min:0',
             'kdv_orani' => 'required|integer|in:1,8,18',
             'stok_miktari' => 'nullable|numeric|min:0',
             'kritik_stok' => 'nullable|numeric|min:0',
@@ -35,8 +35,9 @@ class UrunController extends Controller
         return new UrunResource($urun);
     }
 
-    public function show(Urunler $urun)
+    public function show($id)
     {
+        $urun = Urunler::findOrFail($id); // not found durumunda 404 atar
         return new UrunResource($urun);
     }
 
@@ -45,9 +46,10 @@ class UrunController extends Controller
         $data = $request->validate([
             'kod' => 'nullable|string|max:255',
             'isim' => 'required|string|max:255',
-            'aciklama' => 'nullable|string',
+            'cesit' => 'nullable|string',
             'birim' => 'required|string|max:50',
-            'fiyat' => 'required|numeric|min:0',
+            'satis_fiyati' => 'required|numeric|min:0',
+            'tedarik_fiyati' => 'required|numeric|min:0',
             'kdv_orani' => 'required|integer|in:1,8,18',
             'stok_miktari' => 'nullable|numeric|min:0',
             'kritik_stok' => 'nullable|numeric|min:0',
