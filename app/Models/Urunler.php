@@ -23,4 +23,10 @@ class Urunler extends Model
         'kdv_orani',
         'aktif',
     ];
+
+    public function siparisler()
+    {
+        return $this->hasMany(Siparis::class, 'urun_id');
+    }
+
 }

@@ -43,5 +43,7 @@ Route::middleware('jwt.auth')->group(function () {
         Route::get('musteri-turleri', [MusteriTurleriController::class, 'index']);
 
         Route::apiResource('urunler', UrunController::class);
+        Route::get('urunler/{id}/satislar', [UrunController::class, 'grafik']);
+
     });
 });
