@@ -44,6 +44,7 @@ Route::middleware('jwt.auth')->group(function () {
 
         Route::apiResource('urunler', UrunController::class);
         Route::get('urunler/{id}/satislar', [UrunController::class, 'grafik']);
+        Route::post('urunler/bulk-upload', [UrunController::class, 'bulkUpload']);
 
     });
 });

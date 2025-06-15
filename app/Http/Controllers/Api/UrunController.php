@@ -7,6 +7,7 @@ use App\Http\Resources\UrunResource;
 use App\Models\Siparis;
 use App\Models\Urunler;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class UrunController extends Controller
 {
@@ -90,4 +91,37 @@ class UrunController extends Controller
         return response()->json(['data' => $veri]);
     }
 
+    public function bulkUpload(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,csv,txt'
+        ]);
+
+        try {
+            $path = $request->file('file')->getRealPath();
+            $data = Excel::toArray([], $request->file('file'));
+
+            $rows = $data[0]; // ilk sayfa
+            unset($rows[0]); // başlığı kaldır
+
+            foreach ($rows as $row) {
+                // Dizi sırasına göre ekleyebilirsiniz veya başlıkları da alabilirsiniz
+                Urunler::create([
+                    'kod' => $row[0],
+                    'isim' => $row[1],
+                    'cesit' => $row[2],
+                    'birim' => $row[3],
+                    'tedarik_fiyati' => floatval($row[4]),
+                    'satis_fiyati' => floatval($row[5]),
+                    'stok_miktari' => intval($row[6]),
+                    'kritik_stok' => intval($row[7]),
+                    'aktif' => filter_var($row[8], FILTER_VALIDATE_BOOLEAN),
+                ]);
+            }
+
+            return response()->json(['message' => 'Ürünler başarıyla eklendi.']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Yükleme sırasında hata: ' . $e->getMessage()], 500);
+        }
+    }
 }
