@@ -1,5 +1,6 @@
 <?php
 
+use App\Exports\UrunlerExport;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\MusterilerController;
 use App\Http\Controllers\Api\YetkililerController;
 use App\Http\Controllers\TeslimatAdresiController;
 use App\Http\Controllers\Api\UrunController;
+use Maatwebsite\Excel\Facades\Excel;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -32,19 +34,20 @@ Route::middleware('jwt.auth')->group(function () {
     Route::get('/users/{user}/roles', [RoleController::class, 'roles']);
 
     Route::prefix('v1')->group(function () {
-        Route::apiResource('musteriler', MusterilerController::class);
-        Route::apiResource('yetkililer', YetkililerController::class);
-        Route::apiResource('musteriler.teslimat-adresleri', TeslimatAdresiController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/musteriler', MusterilerController::class);
+        Route::apiResource('/yetkililer', YetkililerController::class);
+        Route::apiResource('/musteriler.teslimat-adresleri', TeslimatAdresiController::class)->only(['store', 'update', 'destroy']);
         
-        Route::get('musteriler/{musteri}/notlar', [MusteriNotController::class, 'index']);
-        Route::post('musteriler/{musteri}/notlar', [MusteriNotController::class, 'store']);
-        Route::delete('musteri-notlar/{musteriNot}', [MusteriNotController::class, 'destroy']);
+        Route::get('/musteriler/{musteri}/notlar', [MusteriNotController::class, 'index']);
+        Route::post('/musteriler/{musteri}/notlar', [MusteriNotController::class, 'store']);
+        Route::delete('/musteri-notlar/{musteriNot}', [MusteriNotController::class, 'destroy']);
 
-        Route::get('musteri-turleri', [MusteriTurleriController::class, 'index']);
+        Route::get('/musteri-turleri', [MusteriTurleriController::class, 'index']);
 
-        Route::apiResource('urunler', UrunController::class);
-        Route::get('urunler/{id}/satislar', [UrunController::class, 'grafik']);
-        Route::post('urunler/bulk-upload', [UrunController::class, 'bulkUpload']);
+        Route::apiResource('/urunler', UrunController::class);
+        Route::get('/urunler/{id}/satislar', [UrunController::class, 'grafik']);
+        Route::post('/urunler/bulk-upload', [UrunController::class, 'bulkUpload']);
 
+        Route::post('/urunler/export', [UrunController::class, 'export']);
     });
 });

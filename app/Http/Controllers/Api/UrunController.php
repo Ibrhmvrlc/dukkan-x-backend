@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\UrunlerExport;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UrunResource;
 use App\Models\Siparis;
@@ -43,25 +44,28 @@ class UrunController extends Controller
         return new UrunResource($urun);
     }
 
-    public function update(Request $request, Urunler $urun)
+    public function update(Request $request, $id)
     {
-        $data = $request->validate([
-            'kod' => 'nullable|string|max:255',
-            'isim' => 'required|string|max:255',
-            'cesit' => 'nullable|string',
-            'birim' => 'required|string|max:50',
-            'satis_fiyati' => 'required|numeric|min:0',
-            'tedarik_fiyati' => 'required|numeric|min:0',
-            'kdv_orani' => 'required|integer',
-            'stok_miktari' => 'nullable|numeric|min:0',
-            'kritik_stok' => 'nullable|numeric|min:0',
+        $urun = Urunler::findOrFail($id);
+
+        $validated = $request->validate([
+            'kod' => 'required|string|max:255',
+            'isim' => 'nullable|string|max:255',
+            'cesit' => 'nullable|string|max:255',
+            'birim' => 'nullable|string|max:255',
+            'tedarik_fiyati' => 'nullable|numeric',
+            'satis_fiyati' => 'nullable|numeric',
+            'stok_miktari' => 'nullable|numeric',
+            'kritik_stok' => 'nullable|numeric',
+            'kdv_orani' => 'nullable|numeric',
             'aktif' => 'boolean',
         ]);
 
-        $urun->update($data);
+        $urun->update($validated);
 
-        return new UrunResource($urun);
+        return response()->json(['message' => 'Ürün başarıyla güncellendi.']);
     }
+
 
     public function destroy(Urunler $urun){
         $urun->delete();
@@ -123,5 +127,10 @@ class UrunController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'Yükleme sırasında hata: ' . $e->getMessage()], 500);
         }
+    }
+
+     public function export()
+    {
+        return Excel::download(new UrunlerExport, 'urunler.xlsx');
     }
 }
