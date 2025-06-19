@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\MusterilerController;
 use App\Http\Controllers\Api\YetkililerController;
 use App\Http\Controllers\TeslimatAdresiController;
 use App\Http\Controllers\Api\UrunController;
+use App\Http\Controllers\Api\SiparisController;
 use Maatwebsite\Excel\Facades\Excel;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -49,5 +50,8 @@ Route::middleware('jwt.auth')->group(function () {
         Route::post('/urunler/bulk-upload', [UrunController::class, 'bulkUpload']);
 
         Route::post('/urunler/export', [UrunController::class, 'export']);
+
+        Route::get('/siparisler/create/{musteri}', [SiparisController::class, 'createWithMusteri']);
+        Route::apiResource('/siparisler', SiparisController::class);
     });
 });
