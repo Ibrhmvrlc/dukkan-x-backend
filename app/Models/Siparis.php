@@ -18,6 +18,7 @@ class Siparis extends Model
         'urun_id',
         'teslimat_adresi_id',
         'yetkili_id',
+        'not',
         'fatura_no',
         'tarih',
         'adet',

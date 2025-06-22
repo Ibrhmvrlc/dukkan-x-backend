@@ -13,6 +13,7 @@ class Urunler extends Model
 
     protected $fillable = [
         'kod',
+        'teslimat_adresi_id',
         'isim',
         'cesit',
         'birim',

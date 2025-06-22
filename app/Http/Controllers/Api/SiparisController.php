@@ -23,12 +23,14 @@ class SiparisController extends Controller
     // GET /api/siparisler/create/{musteri}
     public function createWithMusteri($musteriId)
     {
-        $musteri = Musteriler::findOrFail($musteriId);
+        $musteri = Musteriler::with('teslimat_adresleri')->with('yetkililer')->findOrFail($musteriId); // ilişkili adresleri de al
         $urunler = Urunler::all();
 
         return response()->json([
             'musteri' => $musteri,
-            'urunler' => $urunler
+            'urunler' => $urunler,
+            'teslimat_adresleri' => $musteri->teslimat_adresleri, // ayrı key olarak da döndürebiliriz
+            'yetkililer' => $musteri->yetkililer // ayrı key olarak da döndürebiliriz
         ]);
     }
 
@@ -37,11 +39,14 @@ class SiparisController extends Controller
     {
         $validated = $request->validate([
             'musteri_id' => 'required|exists:musteriler,id',
+            'teslimat_adresi_id' => 'required|exists:teslimat_adresleri,id',
+            'yetkili_id' => 'required|exists:yetkililer,id',
             'urunler' => 'required|array|min:1',
             'urunler.*.urun_id' => 'required|exists:urunler,id',
             'urunler.*.miktar' => 'required|numeric|min:1',
             'urunler.*.fiyat' => 'required|numeric|min:0',
             'yetkili' => 'nullable|string|max:255',
+            'not' => 'nullable|string',
             'iskonto' => 'nullable|numeric|min:0',
             'kdv' => 'nullable|numeric|min:0',
         ]);
@@ -49,32 +54,32 @@ class SiparisController extends Controller
         DB::beginTransaction();
 
         try {
-            $siparis = Siparis::create([
-                'musteri_id' => $validated['musteri_id'],
-                'yetkili' => $validated['yetkili'] ?? null,
-                'kdv' => $validated['kdv'] ?? 0,
-                'iskonto' => $validated['iskonto'] ?? 0,
-            ]);
-
             foreach ($validated['urunler'] as $item) {
-                $siparis->urunler()->attach($item['urun_id'], [
-                    'miktar' => $item['miktar'],
-                    'fiyat' => $item['fiyat'],
+                Siparis::create([
+                    'musteri_id' => $validated['musteri_id'],
+                    'urun_id' => $item['urun_id'],
+                    'teslimat_adresi_id' => $validated['teslimat_adresi_id'],
+                    'yetkili_id' => $validated['yetkili_id'],
+                    'adet' => $item['miktar'],
+                    'birim_fiyat' => $item['fiyat'],
+                    'kdv_orani' => $validated['kdv'] ?? 10,
+                    'iskonto_orani' => $validated['iskonto'] ?? 0,
+                    'not' => $validated['not'] ?? null,
+                    'tarih' => now(),
+                    // 'yetkili_id' => bu alan ayrı şekilde implement edilecekse ilişkili ID gönderilmeli
                 ]);
             }
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Sipariş başarıyla oluşturuldu.',
-                'siparis_id' => $siparis->id,
+                'message' => 'Sipariş(ler) başarıyla oluşturuldu.',
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'message' => 'Sipariş oluşturulurken bir hata oluştu.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
