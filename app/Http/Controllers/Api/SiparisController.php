@@ -50,6 +50,7 @@ class SiparisController extends Controller
             'iskonto' => 'nullable|numeric|min:0',
             'kdv' => 'nullable|numeric|min:0',
         ]);
+        
 
         DB::beginTransaction();
 
