@@ -50,7 +50,7 @@ class SiparisController extends Controller
             'iskonto' => 'nullable|numeric|min:0',
             'kdv' => 'nullable|numeric|min:0',
         ]);
-        
+
 
         DB::beginTransaction();
 
@@ -107,4 +107,38 @@ class SiparisController extends Controller
         $siparis->delete();
         return response()->json(['message' => 'Sipariş silindi.']);
     }
+
+    public function siparislerByMusteri($musteriId)
+    {
+        $siparisler = Siparis::with(['urun', 'yetkili', 'teslimatAdresi'])
+            ->where('musteri_id', $musteriId)
+            ->get()
+            ->groupBy('tarih');
+
+        // Gruplanmış siparişleri frontend'in kolay tüketebileceği şekilde dönüştürebiliriz:
+        $response = [];
+
+        foreach ($siparisler as $tarih => $siparisGrubu) {
+            $siparisData = [
+                'id' => $siparisGrubu->first()->id,
+                'tarih' => $tarih,
+                'yetkili' => $siparisGrubu->first()->yetkili,
+                'teslimat_adresi' => $siparisGrubu->first()->teslimatAdresi,
+                'urunler' => [],
+            ];
+
+            foreach ($siparisGrubu as $siparis) {
+                $siparisData['urunler'][] = [
+                    'urun' => $siparis->urun,
+                    'adet' => $siparis->adet,
+                    'birim_fiyat' => $siparis->birim_fiyat,
+                ];
+            }
+
+            $response[] = $siparisData;
+        }
+
+        return response()->json(['data' => $response]);
+    }
+
 }

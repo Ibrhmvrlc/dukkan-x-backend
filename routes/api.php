@@ -53,5 +53,6 @@ Route::middleware('jwt.auth')->group(function () {
 
         Route::get('/siparisler/create/{musteri}', [SiparisController::class, 'createWithMusteri']);
         Route::apiResource('/siparisler', SiparisController::class);
+        Route::get('/musteriler/{musteri}/siparisler', [SiparisController::class, 'siparislerByMusteri']);
     });
 });
