@@ -16,6 +16,7 @@ class Urunler extends Model
         'teslimat_adresi_id',
         'isim',
         'cesit',
+        'marka',
         'birim',
         'satis_fiyati',
         'tedarik_fiyati',
@@ -23,6 +24,7 @@ class Urunler extends Model
         'kritik_stok',
         'kdv_orani',
         'aktif',
+        'tedarikci_id',
     ];
 
     public function siparisler()
@@ -30,4 +32,8 @@ class Urunler extends Model
         return $this->hasMany(Siparis::class, 'urun_id');
     }
 
+    public function tedarikci()
+    {
+        return $this->belongsTo(Tedarikci::class);
+    }
 }

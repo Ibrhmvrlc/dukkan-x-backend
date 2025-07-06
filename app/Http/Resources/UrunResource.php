@@ -14,6 +14,7 @@ class UrunResource extends JsonResource
             'kod' => $this->kod,
             'isim' => $this->isim,
             'cesit' => $this->cesit,
+            'marka' => $this->marka,
             'birim' => $this->birim,
             'satis_fiyati' => $this->satis_fiyati,
             'tedarik_fiyati' => $this->tedarik_fiyati,
@@ -21,6 +22,21 @@ class UrunResource extends JsonResource
             'kritik_stok' => $this->kritik_stok,
             'kdv_orani' => $this->kdv_orani,
             'aktif' => $this->aktif,
+            'tedarikci_id' => $this->tedarikci_id,
+
+            // Ek olarak tedarikçi bilgisi (eager load edilmişse)
+            'tedarikci' => $this->whenLoaded('tedarikci', function () {
+                return [
+                    'id' => $this->tedarikci->id,
+                    'unvan' => $this->tedarikci->unvan,
+                    'vergi_no' => $this->tedarikci->vergi_no,
+                    'vergi_dairesi' => $this->tedarikci->vergi_dairesi,
+                    'adres' => $this->tedarikci->adres,
+                    'yetkili_ad' => $this->tedarikci->yetkili_ad,
+                    'telefon' => $this->tedarikci->telefon,
+                    'email' => $this->tedarikci->email,
+                ];
+            }),
         ];
     }
 }

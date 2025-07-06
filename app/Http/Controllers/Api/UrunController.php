@@ -14,7 +14,7 @@ class UrunController extends Controller
 {
     public function index()
     {
-        $urunler = Urunler::orderBy('created_at', 'desc')->get();
+        $urunler = Urunler::with('tedarikci')->orderBy('created_at', 'desc')->get();
         return UrunResource::collection($urunler);
     }
 
@@ -31,12 +31,14 @@ class UrunController extends Controller
             'stok_miktari' => 'nullable|numeric|min:0',
             'kritik_stok' => 'nullable|numeric|min:0',
             'aktif' => 'boolean',
+            'marka' => 'required|string|max:255',
+            'tedarikci_id' => 'required|exists:tedarikciler,id',
         ]);
 
         $urun = Urunler::create($data);
-
         return new UrunResource($urun);
     }
+
 
     public function show($id)
     {
@@ -59,6 +61,8 @@ class UrunController extends Controller
             'kritik_stok' => 'nullable|numeric',
             'kdv_orani' => 'nullable|numeric',
             'aktif' => 'boolean',
+            'marka' => 'nullable|string|max:255',
+            'tedarikci_id' => 'nullable|exists:tedarikciler,id',
         ]);
 
         $urun->update($validated);
@@ -109,7 +113,6 @@ class UrunController extends Controller
             unset($rows[0]); // başlığı kaldır
 
             foreach ($rows as $row) {
-                // Dizi sırasına göre ekleyebilirsiniz veya başlıkları da alabilirsiniz
                 Urunler::create([
                     'kod' => $row[0],
                     'isim' => $row[1],
@@ -120,6 +123,8 @@ class UrunController extends Controller
                     'stok_miktari' => intval($row[6]),
                     'kritik_stok' => intval($row[7]),
                     'aktif' => filter_var($row[8], FILTER_VALIDATE_BOOLEAN),
+                    'marka' => $row[9],
+                    'tedarikci_id' => intval($row[10]),
                 ]);
             }
 
