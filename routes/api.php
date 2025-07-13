@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\YetkililerController;
 use App\Http\Controllers\TeslimatAdresiController;
 use App\Http\Controllers\Api\UrunController;
 use App\Http\Controllers\Api\SiparisController;
+use App\Http\Controllers\Api\TedarikciController;
 use Maatwebsite\Excel\Facades\Excel;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -36,6 +37,7 @@ Route::middleware('jwt.auth')->group(function () {
 
     Route::prefix('v1')->group(function () {
         Route::apiResource('/musteriler', MusterilerController::class);
+        Route::apiResource('tedarikciler', TedarikciController::class);
         Route::apiResource('/yetkililer', YetkililerController::class);
         Route::apiResource('/musteriler.teslimat-adresleri', TeslimatAdresiController::class)->only(['store', 'update', 'destroy']);
         

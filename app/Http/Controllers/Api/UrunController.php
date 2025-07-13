@@ -10,6 +10,7 @@ use App\Models\Tedarikci;
 use App\Models\Urunler;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Str;
 
 class UrunController extends Controller
 {
@@ -100,7 +101,6 @@ class UrunController extends Controller
         return response()->json(['data' => $veri]);
     }
 
-    
     public function bulkUpload(Request $request)
     {
         $request->validate([
@@ -109,51 +109,112 @@ class UrunController extends Controller
 
         try {
             $data = Excel::toArray([], $request->file('file'));
-            $rows = $data[0]; // İlk sayfa
-            unset($rows[0]);  // Başlığı kaldır
+            $rows = $data[0];
 
-            // Tüm tedarikçileri bir kerede çek
+            if (empty($rows) || count($rows) < 2) {
+                return response()->json(['error' => 'Yetersiz veri: En az başlık + 1 veri satırı olmalı.'], 400);
+            }
+
+            // Başlıkları normalize et
+            function normalizeHeader($header) {
+                $header = preg_replace('/\(.+\)/', '', $header); // "(₺)", "(%)" vs. parantez içini sil
+                $header = trim($header);                         // boşlukları sil
+                return Str::slug($header, '_');                  // slug'a çevir
+            }
+
+            // Tedarikçi adlarını normalize et
+            function normalizeCompanyName($name) {
+                $name = strtolower($name);
+                $name = str_replace(
+                    ['ltd.', 'ltd', 'şti.', 'şti', 'san.', 'san', 'tic.', 'tic', 'a.ş.', 'aş',
+                    'anonim', 'limited', 'şirketi', '.', ',', '̇'],
+                    '',
+                    $name
+                );
+                $name = preg_replace('/[^\x20-\x7E]/u', '', $name); // Türkçe gibi ASCII dışı karakterleri temizle
+                $name = preg_replace('/\s+/', ' ', $name); // fazla boşlukları tek boşluğa indir
+                return trim($name);
+            }
+
+            $headers = array_map(fn($h) => normalizeHeader($h), $rows[0]);
+            unset($rows[0]);
+
+            // Beklenen başlıklar (normalize edilmiş haliyle)
+            $requiredHeaders = [
+                'kod', 'isim', 'cesit', 'marka', 'birim',
+                'satis_fiyati', 'kdv_orani', 'stok_miktari',
+                'kritik_stok', 'tedarik_fiyati', 'aktif', 'tedarikci'
+            ];
+
+            // Eksik başlık kontrolü
+            foreach ($requiredHeaders as $header) {
+                if (!in_array($header, $headers)) {
+                    return response()->json([
+                        'error' => "Eksik veya uyumsuz başlık: $header",
+                        'bulunan' => $headers,
+                        'beklenen' => $requiredHeaders,
+                    ], 400);
+                }
+            }
+
+            $indexMap = array_flip($headers);
             $tedarikciler = Tedarikci::all(['id', 'unvan']);
 
             foreach ($rows as $row) {
-                $tedarikciAdi = trim($row[9] ?? '');
+                if (empty($row[$indexMap['kod']]) && empty($row[$indexMap['isim']])) {
+                    continue; // boş satır
+                }
+
+                $tedarikciAdi = trim($row[$indexMap['tedarikci']] ?? '');
+                $normalizedInput = normalizeCompanyName($tedarikciAdi);
 
                 $eslesenTedarikciId = null;
                 $maxOran = 0;
 
                 foreach ($tedarikciler as $tedarikci) {
-                    similar_text(strtolower($tedarikciAdi), strtolower($tedarikci->unvan), $oran);
+                    $normalizedDbName = normalizeCompanyName($tedarikci->unvan);
+
+                    // Tam eşleşme varsa direkt al
+                    if ($normalizedInput === $normalizedDbName) {
+                        $eslesenTedarikciId = $tedarikci->id;
+                        break;
+                    }
+
+                    // Benzerlik oranı ile eşleştir
+                    similar_text($normalizedInput, $normalizedDbName, $oran);
                     if ($oran > $maxOran) {
                         $maxOran = $oran;
                         $eslesenTedarikciId = $tedarikci->id;
                     }
                 }
 
-                // %80 üzeri benzerlik varsa eşleştir, yoksa null bırak
-                $finalTedarikciId = $maxOran >= 80 ? $eslesenTedarikciId : null;
+                // %60 ve üzeri benzerse eşleştir, değilse varsayılan 1
+                $finalTedarikciId = $maxOran >= 60 ? $eslesenTedarikciId : 1;
 
                 Urunler::create([
-                    'kod' => $row[0],
-                    'isim' => $row[1],
-                    'cesit' => $row[2],
-                    'birim' => $row[3],
-                    'tedarik_fiyati' => floatval($row[4]),
-                    'satis_fiyati' => floatval($row[5]),
-                    'stok_miktari' => intval($row[6]),
-                    'kritik_stok' => intval($row[7]),
-                    'aktif' => filter_var($row[8], FILTER_VALIDATE_BOOLEAN),
-                    'marka' => $row[9],
+                    'kod' => $row[$indexMap['kod']],
+                    'isim' => $row[$indexMap['isim']],
+                    'cesit' => $row[$indexMap['cesit']],
+                    'marka' => $row[$indexMap['marka']],
+                    'birim' => $row[$indexMap['birim']],
+                    'satis_fiyati' => floatval($row[$indexMap['satis_fiyati']]),
+                    'kdv_orani' => intval($row[$indexMap['kdv_orani']]),
+                    'stok_miktari' => intval($row[$indexMap['stok_miktari']]),
+                    'kritik_stok' => intval($row[$indexMap['kritik_stok']]),
+                    'tedarik_fiyati' => floatval($row[$indexMap['tedarik_fiyati']]),
+                    'aktif' => filter_var($row[$indexMap['aktif']], FILTER_VALIDATE_BOOLEAN),
                     'tedarikci_id' => $finalTedarikciId,
                 ]);
             }
 
-            return response()->json(['message' => 'Ürünler başarıyla eklendi.']);
+            return response()->json(['message' => 'Ürünler başarıyla yüklendi.']);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Yükleme sırasında hata: ' . $e->getMessage()], 500);
         }
     }
 
-     public function export()
+
+    public function export()
     {
         return Excel::download(new UrunlerExport, 'urunler.xlsx');
     }

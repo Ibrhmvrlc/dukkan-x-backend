@@ -23,6 +23,7 @@ return new class extends Migration
             $table->decimal('kritik_stok', 10, 2)->default(0);
             $table->decimal('tedarik_fiyati', 10, 2)->default(0);
             $table->boolean('aktif')->default(true);
+            $table->softDeletes();
             $table->timestamps();
         });
     }
