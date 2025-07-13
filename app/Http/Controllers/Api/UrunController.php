@@ -6,6 +6,7 @@ use App\Exports\UrunlerExport;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UrunResource;
 use App\Models\Siparis;
+use App\Models\Tedarikci;
 use App\Models\Urunler;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -99,6 +100,7 @@ class UrunController extends Controller
         return response()->json(['data' => $veri]);
     }
 
+    
     public function bulkUpload(Request $request)
     {
         $request->validate([
@@ -106,13 +108,30 @@ class UrunController extends Controller
         ]);
 
         try {
-            $path = $request->file('file')->getRealPath();
             $data = Excel::toArray([], $request->file('file'));
+            $rows = $data[0]; // İlk sayfa
+            unset($rows[0]);  // Başlığı kaldır
 
-            $rows = $data[0]; // ilk sayfa
-            unset($rows[0]); // başlığı kaldır
+            // Tüm tedarikçileri bir kerede çek
+            $tedarikciler = Tedarikci::all(['id', 'unvan']);
 
             foreach ($rows as $row) {
+                $tedarikciAdi = trim($row[9] ?? '');
+
+                $eslesenTedarikciId = null;
+                $maxOran = 0;
+
+                foreach ($tedarikciler as $tedarikci) {
+                    similar_text(strtolower($tedarikciAdi), strtolower($tedarikci->unvan), $oran);
+                    if ($oran > $maxOran) {
+                        $maxOran = $oran;
+                        $eslesenTedarikciId = $tedarikci->id;
+                    }
+                }
+
+                // %80 üzeri benzerlik varsa eşleştir, yoksa null bırak
+                $finalTedarikciId = $maxOran >= 80 ? $eslesenTedarikciId : null;
+
                 Urunler::create([
                     'kod' => $row[0],
                     'isim' => $row[1],
@@ -124,7 +143,7 @@ class UrunController extends Controller
                     'kritik_stok' => intval($row[7]),
                     'aktif' => filter_var($row[8], FILTER_VALIDATE_BOOLEAN),
                     'marka' => $row[9],
-                    'tedarikci_id' => intval($row[10]),
+                    'tedarikci_id' => $finalTedarikciId,
                 ]);
             }
 

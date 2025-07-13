@@ -16,7 +16,8 @@ return new class extends Migration
             $table->string('marka')->after('cesit');
 
             // 'tedarikci_id' foreign key kolonunu ekliyoruz ve varsayılan değer olarak 1 atıyoruz
-            $table->foreignId('tedarikci_id')->after('aktif')->constrained('tedarikciler')           // foreign key kısıtlamasını belirtiyoruz
+            $table->foreignId('tedarikci_id')->after('aktif')  // ->default(1)
+                  ->constrained('tedarikciler')           // foreign key kısıtlamasını belirtiyoruz
                   ->cascadeOnDelete();                   // silme işlemi sırasında cascade (silinen tedarikçi ile ilişkili ürünler de silinsin)
         });
     }
