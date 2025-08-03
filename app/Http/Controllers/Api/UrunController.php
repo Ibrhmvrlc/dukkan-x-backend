@@ -213,9 +213,26 @@ class UrunController extends Controller
         }
     }
 
-
     public function export()
     {
         return Excel::download(new UrunlerExport, 'urunler.xlsx');
     }
+
+    public function stokEkle(Request $request, $id)
+    {
+        $urun = Urunler::findOrFail($id);
+
+        $request->validate([
+            'miktar' => 'required|integer|min:1'
+        ]);
+
+        $urun->stok_miktari += $request->input('miktar');
+        $urun->save();
+
+        return response()->json([
+            'message' => 'Stok başarıyla eklendi.',
+            'stok_miktari' => $urun->stok_miktari
+        ]);
+    }
+
 }
