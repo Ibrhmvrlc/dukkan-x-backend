@@ -21,6 +21,10 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/refresh', [AuthController::class, 'refresh']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:api');
 
+Route::middleware(['jwt.auth', 'throttle:5,1'])->group(function () {
+    Route::post('/v1/reauth', [AuthController::class, 'reauth']);
+});
+
 Route::middleware('jwt.auth')->group(function () {
     Route::get('/user', fn(Request $request) => $request->user());
 
@@ -51,6 +55,8 @@ Route::middleware('jwt.auth')->group(function () {
         Route::get('/urunler/{id}/satislar', [UrunController::class, 'grafik']);
         Route::post('/urunler/bulk-upload', [UrunController::class, 'bulkUpload']);
         Route::patch('/urunler/{id}/stok-ekle', [UrunController::class, 'stokEkle']);
+        Route::put('urunler/{urun}/fiyat', [UrunController::class, 'updateFiyat']);
+        Route::post('urunler/toplu-guncelle', [UrunController::class, 'topluGuncelle']);
 
         Route::post('/urunler/export', [UrunController::class, 'export']);
 

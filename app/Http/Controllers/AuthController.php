@@ -77,4 +77,19 @@ class AuthController extends Controller
             return response()->json(['error' => 'Token invalidation failed'], 500);
         }
     }
+
+    public function reauth(Request $request)
+    {
+        $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        $user = auth()->user();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Parola hatalı'], 422);
+        }
+
+        return response()->json(['ok' => true]);
+    }
 }

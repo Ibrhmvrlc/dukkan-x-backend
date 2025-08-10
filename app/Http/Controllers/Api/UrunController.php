@@ -9,6 +9,7 @@ use App\Models\Siparis;
 use App\Models\Tedarikci;
 use App\Models\Urunler;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Str;
 
@@ -233,6 +234,66 @@ class UrunController extends Controller
             'message' => 'Stok başarıyla eklendi.',
             'stok_miktari' => $urun->stok_miktari
         ]);
+    }
+
+    public function updateFiyat(Request $request, Urunler $urun)
+    {
+        $validated = $request->validate([
+            'satis_fiyati'    => ['nullable','numeric','min:0'],
+            'tedarik_fiyati'  => ['nullable','numeric','min:0'],
+        ]);
+
+        // Sadece gönderilen alanları doldur
+        $fields = array_filter($validated, fn($v) => !is_null($v));
+
+        if (empty($fields)) {
+            return response()->json(['message' => 'Güncellenecek alan yok.'], 422);
+        }
+
+        $urun->fill($fields)->save();
+
+        return response()->json([
+            'message' => 'Fiyat(lar) güncellendi',
+            'urun'    => $urun,
+        ]);
+    }
+
+    public function topluGuncelle(Request $request)
+    {
+        $validated = $request->validate([
+            'oran'     => ['required','numeric'], // +5 zam, -5 indirim gibi
+            'markalar' => ['array'],
+            'hedef'    => ['required','in:satis,tedarik,ikisi'],
+        ]);
+
+        $q = Urunler::query();
+
+        if (!empty($validated['markalar'])) {
+            $q->whereIn('marka', $validated['markalar']);
+        }
+
+        // oran % olarak geliyor: 5 => 1.05, -5 => 0.95
+        $factor = 1 + ($validated['oran'] / 100);
+
+        DB::beginTransaction();
+        try {
+            if ($validated['hedef'] === 'satis' || $validated['hedef'] === 'ikisi') {
+                $q->clone()->update([
+                    'satis_fiyati' => DB::raw("ROUND(satis_fiyati * {$factor}, 2)")
+                ]);
+            }
+            if ($validated['hedef'] === 'tedarik' || $validated['hedef'] === 'ikisi') {
+                $q->clone()->update([
+                    'tedarik_fiyati' => DB::raw("ROUND(tedarik_fiyati * {$factor}, 2)")
+                ]);
+            }
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Toplu işlem hatası', 'error' => $e->getMessage()], 500);
+        }
+
+        return response()->json(['message' => 'Toplu güncelleme tamamlandı']);
     }
 
 }
