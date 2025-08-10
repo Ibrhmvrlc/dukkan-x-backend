@@ -32,9 +32,11 @@ class Siparis extends Model
         return $this->belongsTo(Musteriler::class);
     }
 
-    public function urun()
+    public function urunler()
     {
-        return $this->belongsTo(Urunler::class);
+        return $this->belongsToMany(Urunler::class, 'siparis_urun', 'siparis_id', 'urun_id')
+            ->withPivot(['adet','birim_fiyat','iskonto_orani','kdv_orani'])
+            ->withTimestamps();
     }
 
     public function teslimatAdresi()

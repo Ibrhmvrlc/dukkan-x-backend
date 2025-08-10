@@ -31,7 +31,9 @@ class Urunler extends Model
 
     public function siparisler()
     {
-        return $this->hasMany(Siparis::class, 'urun_id');
+        return $this->belongsToMany(Siparis::class, 'siparis_urun', 'urun_id', 'siparis_id')
+            ->withPivot(['adet','birim_fiyat'])
+            ->withTimestamps();
     }
 
     public function tedarikci()
