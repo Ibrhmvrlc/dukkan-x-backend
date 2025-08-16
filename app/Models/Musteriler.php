@@ -17,7 +17,7 @@ class Musteriler extends Model
 
     protected $fillable = [
         'unvan', 'tur', 'vergi_no', 'vergi_dairesi',
-        'telefon', 'email', 'adres', 'notlar', 'aktif', 'musteri_tur_id'
+        'telefon', 'email', 'adres', 'notlar', 'aktif', 'musteri_tur_id', 'iskonto_orani',
     ];
 
     public function yetkililer()

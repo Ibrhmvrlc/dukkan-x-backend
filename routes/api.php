@@ -1,6 +1,7 @@
 <?php
 
 use App\Exports\UrunlerExport;
+use App\Http\Controllers\Api\MusteriFiyatController as ApiMusteriFiyatController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -14,6 +15,7 @@ use App\Http\Controllers\TeslimatAdresiController;
 use App\Http\Controllers\Api\UrunController;
 use App\Http\Controllers\Api\SiparisController;
 use App\Http\Controllers\Api\TedarikciController;
+use App\Http\Controllers\MusteriFiyatController;
 use Maatwebsite\Excel\Facades\Excel;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -48,8 +50,8 @@ Route::middleware('jwt.auth')->group(function () {
         Route::get('/musteriler/{musteri}/notlar', [MusteriNotController::class, 'index']);
         Route::post('/musteriler/{musteri}/notlar', [MusteriNotController::class, 'store']);
         Route::delete('/musteri-notlar/{musteriNot}', [MusteriNotController::class, 'destroy']);
-
         Route::get('/musteri-turleri', [MusteriTurleriController::class, 'index']);
+        Route::get('/musteriler/{musteriId}/ozel-fiyatlar', [ApiMusteriFiyatController::class, 'index']);
 
         Route::apiResource('/urunler', UrunController::class);
         Route::get('/urunler/{id}/satislar', [UrunController::class, 'grafik']);
