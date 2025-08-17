@@ -9,39 +9,49 @@ use Illuminate\Http\Request;
 
 class MusteriFiyatController extends Controller
 {
-    public function index(int $musteriId, Request $request)
+     public function index(Request $request, int $musteriId)
     {
-        // Müşteriyi ID ile bul
         $musteri = Musteriler::findOrFail($musteriId);
 
-        // Güvenli iskonto aralığı
         $iskonto = max(0, min(100, (float)($musteri->iskonto_orani ?? 0)));
 
-        // Ürünleri çek ve özel fiyatı hesapla
-        $urunler = Urunler::select(['id', 'isim', 'marka', 'satis_fiyati'])
-            ->orderBy('marka')
-            ->orderBy('isim')
-            ->get()
-            ->map(function ($u) use ($iskonto) {
-                $ozel = round((float)$u->satis_fiyati * (1 - $iskonto / 100), 2);
+        $perPage = (int) $request->integer('per_page', 25);
+        $q       = trim((string) $request->get('q', ''));
+        $sort    = in_array($request->get('sort'), ['marka','isim','satis_fiyati']) ? $request->get('sort') : 'marka';
+        $dir     = strtolower($request->get('dir')) === 'desc' ? 'desc' : 'asc';
 
-                return [
-                    'id'            => $u->id,
-                    'isim'          => $u->isim,
-                    'marka'         => $u->marka,
-                    'liste_fiyati'  => (float)$u->satis_fiyati,
-                    'iskonto_orani' => $iskonto,
-                    'ozel_fiyat'    => $ozel,
-                ];
+        $query = Urunler::query()
+            ->select(['id','isim','marka','satis_fiyati'])
+            ->when($q !== '', function ($qb) use ($q) {
+                $qb->where(function ($w) use ($q) {
+                    $w->where('isim', 'like', "%{$q}%")
+                      ->orWhere('marka', 'like', "%{$q}%");
+                });
             })
-            ->values();
+            ->orderBy($sort, $dir)
+            ->orderBy('isim', 'asc');
+
+        $paginator = $query->paginate($perPage);
+
+        // Paginator içindeki koleksiyonu dönüştür (ozel_fiyat ekle)
+        $paginator->getCollection()->transform(function ($u) use ($iskonto) {
+            $ozel = round((float)$u->satis_fiyati * (1 - $iskonto / 100), 2);
+            return [
+                'id'            => $u->id,
+                'isim'          => $u->isim,
+                'marka'         => $u->marka,
+                'liste_fiyati'  => (float) $u->satis_fiyati,
+                'iskonto_orani' => $iskonto,
+                'ozel_fiyat'    => $ozel,
+            ];
+        });
 
         return response()->json([
             'musteri' => [
                 'id'            => $musteri->id,
                 'iskonto_orani' => $iskonto,
             ],
-            'urunler' => $urunler,
+            'urunler' => $paginator, // { data: [...], current_page, last_page, per_page, total, from, to, ... }
         ]);
     }
 }

@@ -13,18 +13,13 @@ class Siparis extends Model
 
     public $timestamps = true; // bu varsa sorun yok
 
-    protected $fillable = [
-        'musteri_id',
-        'urun_id',
-        'teslimat_adresi_id',
-        'yetkili_id',
-        'not',
-        'fatura_no',
-        'tarih',
-        'adet',
-        'birim_fiyat',
-        'iskonto_orani',
-        'kdv_orani',
+   protected $fillable = [
+    'musteri_id',
+    'teslimat_adresi_id',
+    'yetkili_id',
+    'not',
+    'fatura_no',
+    'tarih'
     ];
 
     public function musteri()

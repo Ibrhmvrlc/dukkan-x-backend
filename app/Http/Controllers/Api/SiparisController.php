@@ -4,21 +4,74 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Siparis;
-use App\Models\Musteri;
 use App\Models\Musteriler;
-use App\Models\Urun;
 use App\Models\Urunler;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class SiparisController extends Controller
 {
-    // GET /api/siparisler
-    public function index()
+    // App\Http\Controllers\Api\SiparisController.php
+
+    public function index(Request $request)
     {
-        $siparisler = Siparis::with('musteri')->latest()->get();
-        return response()->json(['data' => $siparisler]);
+        $perPage = (int) $request->input('per_page', 25);
+
+        $paginator = Siparis::with('musteri')
+            ->latest()
+            ->paginate($perPage);
+
+        // Standart Laravel pagination döner (current_page, data, from, last_page, per_page, to, total ...)
+        return response()->json($paginator);
     }
+
+    /**
+     * GET /api/musteriler/{musteriId}/siparisler
+     * Server-side pagination + (opsiyonel) basit arama.
+     */
+    public function siparislerByMusteri(Request $request, $musteri)
+    {
+        $perPage = (int) $request->input('per_page', 25);
+        $q       = trim((string) $request->input('q', ''));
+
+        $query = Siparis::with(['urunler','yetkili','teslimatAdresi'])
+            ->where('musteri_id', $musteri)
+            ->latest();
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->whereDate('tarih', $q)
+                    ->orWhereHas('yetkili', fn($yy) => $yy->where('isim', 'like', "%{$q}%"))
+                    ->orWhereHas('teslimatAdresi', fn($ta) => $ta->where('adres', 'like', "%{$q}%"))
+                    ->orWhereHas('urunler', fn($uu) => $uu->where('isim', 'like', "%{$q}%"));
+            });
+        }
+
+        $paginator = $query->paginate($perPage)->through(function ($s) {
+            return [
+                'id'              => $s->id,
+                'tarih'           => $s->tarih,
+                'fatura_no'       => $s->fatura_no,                      // ← EKLENDİ
+                'durum'           => $s->fatura_no ? 'Faturalandı' : 'Beklemede', // ← İsteğe bağlı
+                'yetkili'         => $s->yetkili,
+                'teslimat_adresi' => $s->teslimatAdresi,
+                'urunler'         => $s->urunler->map(function ($u) {
+                    return [
+                        'urun'          => $u,
+                        'adet'          => $u->pivot->adet,
+                        'birim_fiyat'   => $u->pivot->birim_fiyat,
+                        'kdv_orani'     => $u->pivot->kdv_orani,
+                        'iskonto_orani' => $u->pivot->iskonto_orani,
+                    ];
+                })->values(),
+            ];
+        });
+
+
+        return response()->json($paginator);
+    }
+
+
 
     // GET /api/siparisler/create/{musteri}
     public function createWithMusteri($musteriId)
@@ -35,7 +88,7 @@ class SiparisController extends Controller
     }
 
     // POST /api/siparisler
-   public function store(Request $request)
+    public function store(Request $request)
     {
         $validated = $request->validate([
             'musteri_id'            => 'required|exists:musteriler,id',
@@ -45,14 +98,19 @@ class SiparisController extends Controller
             'urunler.*.urun_id'     => 'required|exists:urunler,id',
             'urunler.*.miktar'      => 'required|numeric|min:1',
             'urunler.*.fiyat'       => 'required|numeric|min:0',
-            // opsiyonel override:
+            // Elle iskonto alanlarını ŞİMDİLİK kaldırdık:
+            // 'urunler.*.iskonto'   => 'nullable|numeric|min:0',
+            // 'iskonto'             => 'nullable|numeric|min:0',
             'urunler.*.kdv'         => 'nullable|numeric|min:0',
-            'urunler.*.iskonto'     => 'nullable|numeric|min:0',
-            'iskonto'               => 'nullable|numeric|min:0',
             'not'                   => 'nullable|string',
         ]);
 
         return DB::transaction(function () use ($validated) {
+            // 0) Müşterinin genel iskonto oranını al
+            /** @var \App\Models\Musteriler $musteri */
+            $musteri = Musteriler::findOrFail($validated['musteri_id']);
+            $musteriIskonto = (float) ($musteri->iskonto_orani ?? 0); // null ise 0
+
             // 1) Sipariş başlığı
             $siparis = Siparis::create([
                 'musteri_id'         => $validated['musteri_id'],
@@ -62,47 +120,49 @@ class SiparisController extends Controller
                 'tarih'              => now(), // DATE sütunu
             ]);
 
-            // 2) Ürünlerden KDV oranlarını topla
+            // 2) Ürün KDV’lerini haritalandır
             $urunIds = collect($validated['urunler'])->pluck('urun_id')->all();
+            // Ürün tablosundaki alan adın nasılsa ona göre değiştir (kdv_orani / kdv)
+            $kdvMap = Urunler::whereIn('id', $urunIds)->pluck('kdv_orani', 'id');
 
-            // ÜRÜN TABLOSU: KDV alan adın nasılsa ona göre değiştir (ör. 'kdv_orani' ya da 'kdv')
-            $kdvMap = Urunler::whereIn('id', $urunIds)->pluck('kdv_orani', 'id'); 
-            // eğer sütun adın 'kdv' ise: ->pluck('kdv','id')
-
-            $defaultIskonto = $validated['iskonto'] ?? 0;
-
-            // 3) Pivot’a ekle (adet, birim, iskonto, kdv)
+            // 3) Pivot verisi: iskonto_orani = MUSTERILER.iskonto_orani
             $attachData = [];
             foreach ($validated['urunler'] as $item) {
-                $urunId = $item['urun_id'];
-                $urunKdv = $kdvMap[$urunId] ?? 10;                 // ürün yoksa 10 kabul (güvenlik ağı)
-                $pivotKdv = $item['kdv'] ?? $urunKdv;               // istenirse override
+                $urunId   = $item['urun_id'];
+                $urunKdv  = $kdvMap[$urunId] ?? 10;        // ürün bulunamazsa 10 varsay
+                $pivotKdv = $item['kdv'] ?? $urunKdv;      // satırda gönderildiyse onu al
 
                 $attachData[$urunId] = [
                     'adet'          => $item['miktar'],
                     'birim_fiyat'   => $item['fiyat'],
-                    'iskonto_orani' => $item['iskonto'] ?? $defaultIskonto,
-                    'kdv_orani'     => $pivotKdv,                    // PİVOTTA TUTULUYOR
+                    'iskonto_orani' => $musteriIskonto,    // ← tek kaynağımız müşteri tablosu
+                    'kdv_orani'     => $pivotKdv,
                 ];
             }
 
             $siparis->urunler()->attach($attachData);
 
-            return response()->json(['message' => 'Sipariş oluşturuldu.', 'data' => $siparis->id], 201);
+            return response()->json([
+                'message' => 'Sipariş oluşturuldu.',
+                'data'    => $siparis->id
+            ], 201);
         });
     }
 
 
-    // GET /api/siparisler/{id}
-   public function show($id)
+    public function show($id)
     {
         $siparis = Siparis::with(['musteri', 'yetkili', 'teslimatAdresi', 'urunler'])
             ->findOrFail($id);
 
-        // Aynı transform’u istersen burada da uygulayabilirsin
+        // basit durum türetimi (isteğe göre genişletilebilir)
+        $durum = $siparis->fatura_no ? 'Faturalandı' : 'Beklemede';
+
         $data = [
             'id'               => $siparis->id,
             'tarih'            => $siparis->tarih,
+            'fatura_no'        => $siparis->fatura_no,   // ← eklendi
+            'durum'            => $durum,                // ← opsiyonel
             'musteri'          => $siparis->musteri,
             'yetkili'          => $siparis->yetkili,
             'teslimat_adresi'  => $siparis->teslimatAdresi,
@@ -117,7 +177,6 @@ class SiparisController extends Controller
 
         return response()->json(['data' => $data]);
     }
-
 
     // PUT /api/siparisler/{id}
     public function update(Request $request, $id)
@@ -134,33 +193,4 @@ class SiparisController extends Controller
         $siparis->delete();
         return response()->json(['message' => 'Sipariş silindi.']);
     }
-
-    public function siparislerByMusteri($musteriId)
-    {
-        $siparisler = Siparis::with(['urunler','yetkili','teslimatAdresi'])
-            ->where('musteri_id', $musteriId)
-            ->latest()
-            ->get();
-
-        $response = $siparisler->map(function ($s) {
-            return [
-                'id'              => $s->id,
-                'tarih'           => $s->tarih,
-                'yetkili'         => $s->yetkili,          // {id, isim...}
-                'teslimat_adresi' => $s->teslimatAdresi,   // {id, adres...}
-                'urunler'         => $s->urunler->map(function ($u) {
-                    return [
-                        'urun'          => $u,
-                        'adet'          => $u->pivot->adet,
-                        'birim_fiyat'   => $u->pivot->birim_fiyat,
-                        'kdv_orani'     => $u->pivot->kdv_orani,
-                        'iskonto_orani' => $u->pivot->iskonto_orani,
-                    ];
-                })->values(),
-            ];
-        })->values();
-
-        return response()->json(['data' => $response]);
-    }
-
 }
