@@ -15,6 +15,7 @@ use App\Http\Controllers\TeslimatAdresiController;
 use App\Http\Controllers\Api\UrunController;
 use App\Http\Controllers\Api\SiparisController;
 use App\Http\Controllers\Api\TedarikciController;
+use App\Http\Controllers\Api\EkstreController;
 use Maatwebsite\Excel\Facades\Excel;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -64,6 +65,8 @@ Route::middleware('jwt.auth')->group(function () {
         Route::get('/siparisler/create/{musteri}', [SiparisController::class, 'createWithMusteri']);
         Route::apiResource('/siparisler', SiparisController::class);
         Route::get('/musteriler/{musteri}/siparisler', [SiparisController::class, 'siparislerByMusteri']);
-        Route::put('/v1/siparisler/{siparis}', [SiparisController::class, 'update']);
+        Route::put('/siparisler/{siparis}', [SiparisController::class, 'update']);
+
+        Route::get('/musteriler/{musteri}/ekstre', [EkstreController::class, 'index']);
     });
 });

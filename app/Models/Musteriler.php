@@ -45,4 +45,17 @@ class Musteriler extends Model
         return $this->hasMany(TeslimatAdresi::class, 'musteri_id');
     }
 
+    public function tahsilatlar()
+    {
+        return $this->hasMany(Tahsilat::class, 'musteri_id');
+    }
+
+    public function siparisler()
+    {
+        return $this->hasMany(Siparis::class, 'musteri_id')
+            ->with(['urunler' => function ($q) {
+                $q->withPivot(['adet','birim_fiyat','iskonto_orani','kdv_orani']);
+            }]);
+    }
+
 }
