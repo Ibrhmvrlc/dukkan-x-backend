@@ -52,6 +52,7 @@ class SiparisController extends Controller
                 'id'              => $s->id,
                 'tarih'           => $s->tarih,
                 'fatura_no'       => $s->fatura_no,                      // ← EKLENDİ
+                'not'             => $s->not ? $s->not : '', // <-- BUNU UNUTMA
                 'durum'           => $s->fatura_no ? 'Faturalandı' : 'Beklemede', // ← İsteğe bağlı
                 'yetkili'         => $s->yetkili,
                 'teslimat_adresi' => $s->teslimatAdresi,
@@ -162,6 +163,7 @@ class SiparisController extends Controller
             'id'               => $siparis->id,
             'tarih'            => $siparis->tarih,
             'fatura_no'        => $siparis->fatura_no,   // ← eklendi
+            'not'              => $siparis->not,   // ← eklendi
             'durum'            => $durum,                // ← opsiyonel
             'musteri'          => $siparis->musteri,
             'yetkili'          => $siparis->yetkili,
@@ -179,12 +181,55 @@ class SiparisController extends Controller
     }
 
     // PUT /api/siparisler/{id}
-    public function update(Request $request, $id)
-    {
-        $siparis = Siparis::findOrFail($id);
-        $siparis->update($request->only('yetkili', 'kdv', 'iskonto'));
-        return response()->json(['message' => 'Sipariş güncellendi.']);
-    }
+   public function update(Request $request, $id)
+{
+    $siparis = Siparis::findOrFail($id);
+
+    $validated = $request->validate([
+        'tarih' => ['nullable','date'],
+        'fatura_no' => ['nullable','string','max:255'],
+        'durum' => ['nullable','string','max:50'],
+        'yetkili_id' => ['nullable','exists:yetkililer,id'],
+        'teslimat_adresi_id' => ['nullable','exists:teslimat_adresleri,id'],
+        'not' => ['nullable', 'string', 'max:2000'],
+
+        'urunler' => ['array'],
+        'urunler.*.urun_id' => ['required','exists:urunler,id'],
+        'urunler.*.adet' => ['required','numeric','min:0'],
+        'urunler.*.birim_fiyat' => ['required','numeric','min:0'],
+        'urunler.*.iskonto_orani' => ['nullable','numeric','min:0'],
+        'urunler.*.kdv_orani' => ['nullable','numeric','min:0'],
+    ]);
+
+    // Sipariş ana alanlarını güncelle
+    $siparis->fill($request->only([
+        'tarih','fatura_no','durum','yetkili_id','teslimat_adresi_id', 'not'
+    ]));
+    $siparis->save();
+
+    // Pivot eşleme: [urun_id => [pivot_alanları...]]
+    $map = collect($validated['urunler'] ?? [])->mapWithKeys(function ($u) {
+        return [
+            $u['urun_id'] => [
+                'adet' => $u['adet'],
+                'birim_fiyat' => $u['birim_fiyat'],
+                'iskonto_orani' => $u['iskonto_orani'] ?? 0,
+                'kdv_orani' => $u['kdv_orani'] ?? 0,
+            ]
+        ];
+    })->toArray();
+
+    // Listedeki ürünler dışındakileri çıkarıp mevcutları güncelle
+    $siparis->urunler()->sync($map); // ihtiyaç varsa syncWithoutDetaching değil, sync
+
+    // İstersen geri dönüşte pivotlu taze veriyi yolla
+    $siparis->load(['urunler' => function($q) {
+        $q->withPivot(['adet','birim_fiyat','iskonto_orani','kdv_orani']);
+    }, 'yetkili', 'teslimatAdresi']);
+
+    return response()->json($siparis, 200);
+}
+
 
     // DELETE /api/siparisler/{id}
     public function destroy($id)

@@ -1,7 +1,7 @@
 <?php
 
 use App\Exports\UrunlerExport;
-use App\Http\Controllers\Api\MusteriFiyatController as ApiMusteriFiyatController;
+use App\Http\Controllers\Api\MusteriFiyatController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -15,7 +15,6 @@ use App\Http\Controllers\TeslimatAdresiController;
 use App\Http\Controllers\Api\UrunController;
 use App\Http\Controllers\Api\SiparisController;
 use App\Http\Controllers\Api\TedarikciController;
-use App\Http\Controllers\MusteriFiyatController;
 use Maatwebsite\Excel\Facades\Excel;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -51,7 +50,8 @@ Route::middleware('jwt.auth')->group(function () {
         Route::post('/musteriler/{musteri}/notlar', [MusteriNotController::class, 'store']);
         Route::delete('/musteri-notlar/{musteriNot}', [MusteriNotController::class, 'destroy']);
         Route::get('/musteri-turleri', [MusteriTurleriController::class, 'index']);
-        Route::get('/musteriler/{musteriId}/ozel-fiyatlar', [ApiMusteriFiyatController::class, 'index']);
+        Route::get('/musteriler/{musteriId}/ozel-fiyatlar', [MusteriFiyatController::class, 'index']);
+        Route::put('/musteriler/{musteriId}/iskonto', [MusteriFiyatController::class, 'updateIskonto']);
 
         Route::apiResource('/urunler', UrunController::class);
         Route::get('/urunler/{id}/satislar', [UrunController::class, 'grafik']);
@@ -59,11 +59,11 @@ Route::middleware('jwt.auth')->group(function () {
         Route::patch('/urunler/{id}/stok-ekle', [UrunController::class, 'stokEkle']);
         Route::put('urunler/{urun}/fiyat', [UrunController::class, 'updateFiyat']);
         Route::post('urunler/toplu-guncelle', [UrunController::class, 'topluGuncelle']);
-
         Route::post('/urunler/export', [UrunController::class, 'export']);
 
         Route::get('/siparisler/create/{musteri}', [SiparisController::class, 'createWithMusteri']);
         Route::apiResource('/siparisler', SiparisController::class);
         Route::get('/musteriler/{musteri}/siparisler', [SiparisController::class, 'siparislerByMusteri']);
+        Route::put('/v1/siparisler/{siparis}', [SiparisController::class, 'update']);
     });
 });
