@@ -13,6 +13,10 @@ class Siparis extends Model
 
     public $timestamps = true; // bu varsa sorun yok
 
+    protected $casts = [
+        'tarih' => 'date:Y-m-d',   // <= JSON'da "2025-06-22" olarak döner
+    ];
+
    protected $fillable = [
     'musteri_id',
     'teslimat_adresi_id',

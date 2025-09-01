@@ -16,7 +16,7 @@ class Tahsilat extends Model
     ];
 
     protected $casts = [
-        'tarih' => 'date',
+        'tarih' => 'date:Y-m-d',
         'tutar' => 'decimal:2',
     ];
 
