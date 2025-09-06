@@ -1,6 +1,7 @@
 <?php
 
 use App\Exports\UrunlerExport;
+use App\Http\Controllers\Api\CalendarEventController;
 use App\Http\Controllers\Api\MusteriFiyatController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Api\UrunController;
 use App\Http\Controllers\Api\SiparisController;
 use App\Http\Controllers\Api\TedarikciController;
 use App\Http\Controllers\Api\EkstreController;
+use App\Http\Controllers\Api\TahsilatController;
 use Maatwebsite\Excel\Facades\Excel;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -41,6 +43,11 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/users/{user}/roles', [RoleController::class, 'assign']);
     Route::get('/users/{user}/roles', [RoleController::class, 'roles']);
 
+    Route::get('/v1/calendar-events', [CalendarEventController::class, 'index']);
+    Route::post('/v1/calendar-events', [CalendarEventController::class, 'store']);
+    Route::put('/v1/calendar-events/{calendar_event}', [CalendarEventController::class, 'update']);
+    Route::delete('/v1/calendar-events/{calendar_event}', [CalendarEventController::class, 'destroy']);
+
     Route::prefix('v1')->group(function () {
         Route::apiResource('/musteriler', MusterilerController::class);
         Route::apiResource('tedarikciler', TedarikciController::class);
@@ -53,6 +60,12 @@ Route::middleware('jwt.auth')->group(function () {
         Route::get('/musteri-turleri', [MusteriTurleriController::class, 'index']);
         Route::get('/musteriler/{musteriId}/ozel-fiyatlar', [MusteriFiyatController::class, 'index']);
         Route::put('/musteriler/{musteriId}/iskonto', [MusteriFiyatController::class, 'updateIskonto']);
+
+        Route::prefix('/musteriler/{musteri}')->group(function () {
+            Route::get('/tahsilatlar', [TahsilatController::class, 'index']);
+            Route::post('/tahsilatlar', [TahsilatController::class, 'store']);
+            Route::delete('/tahsilatlar/{id}', [TahsilatController::class, 'destroy']);
+        });
 
         Route::apiResource('/urunler', UrunController::class);
         Route::get('/urunler/{id}/satislar', [UrunController::class, 'grafik']);

@@ -50,7 +50,7 @@ class EkstreController extends Controller
 
         // ---------- TAHSİLAT (ALACAK) - SADECE ONAYLI ----------
         $tahsilatApproved = $musteri->tahsilatlar()
-            ->select(['id','tarih','aciklama','referans_no','tutar'])
+            ->select(['id','tarih','aciklama','referans_no','tutar', 'kanal'])
             ->when($dateFrom, fn($q) => $q->whereDate('tarih', '>=', $dateFrom))
             ->when($dateTo,   fn($q) => $q->whereDate('tarih', '<=', $dateTo))
             ->where($approvedStr('referans_no'))
@@ -62,6 +62,7 @@ class EkstreController extends Controller
                     'tarih'    => optional($t->tarih)->format('Y-m-d'),
                     'aciklama' => $t->aciklama ?? 'Tahsilat',
                     'belge_no' => $t->referans_no,
+                    'kanal'    => $t->kanal,
                     'borc'     => 0.0,
                     'alacak'   => (float) $t->tutar,
                 ];
