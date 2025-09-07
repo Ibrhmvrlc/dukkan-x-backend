@@ -9,6 +9,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class TeslimatAdresi extends Model
 {
     use SoftDeletes;
+    
+    protected $casts = [
+        'lat' => 'float',
+        'lng' => 'float',
+        'geocoded_at' => 'datetime',
+    ];
 
     protected $table = 'teslimat_adresleri';
 

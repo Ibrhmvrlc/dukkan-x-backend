@@ -2,6 +2,7 @@
 
 use App\Exports\UrunlerExport;
 use App\Http\Controllers\Api\CalendarEventController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\MusteriFiyatController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -81,5 +82,11 @@ Route::middleware('jwt.auth')->group(function () {
         Route::put('/siparisler/{siparis}', [SiparisController::class, 'update']);
 
         Route::get('/musteriler/{musteri}/ekstre', [EkstreController::class, 'index']);
+
+        Route::get('/dashboard/ecommerce-metrics', [DashboardController::class, 'ecommerceMetrics']);
+        Route::get('/dashboard/finance-monthly', [DashboardController::class, 'financeMonthly']);
+        Route::get('/dashboard/monthly-sales', [DashboardController::class, 'monthlySales']);
+        Route::get('/dashboard/monthly-collections', [DashboardController::class, 'monthlyCollections']);
+        Route::get('/dashboard/yalova-delivery-points', [DashboardController::class, 'yalovaDeliveryPoints']); //farklı illerde farklılaştırılamalı
     });
 });
