@@ -15,9 +15,11 @@ class GeocodeAddress implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $queue = 'geocoding';
-
-    public function __construct(public int $adresId) {}
+    public function __construct(public int $adresId)
+    {
+        // Kuyruk adı burada; $queue property TANIMLAMA!
+        $this->onQueue('geocoding');
+    }
 
     public function handle(): void
     {
@@ -25,12 +27,11 @@ class GeocodeAddress implements ShouldQueue
         if (!$a) return;
 
         // ---- Normalizasyon ----
-        // "MERKEZ" → il merkez kenti (city=Yalova), ilçe alanını boş geç
         $il = trim((string) $a->il);
         $ilceRaw = trim((string) $a->ilce);
         $ilce = (mb_strtoupper($ilceRaw, 'UTF-8') === 'MERKEZ') ? null : $ilceRaw;
 
-        // Kısaltmaları aç (Mah. → Mahallesi, Cd. → Caddesi, Sk. → Sokak, No: → No)
+        // Kısaltmaları aç
         $street = preg_replace(
             ['/\bMah\.\b/u','/\bCd\.\b/u','/\bSk\.\b/u','/\bNo:\s*/u'],
             ['Mahallesi','Caddesi','Sokak','No '],
@@ -40,12 +41,11 @@ class GeocodeAddress implements ShouldQueue
 
         $postal = $a->posta_kodu ? trim($a->posta_kodu) : null;
 
-        // Yalova için bounding box (yaklaşık)
-        // minLon,minLat,maxLon,maxLat
-        $yalovaBox = '28.70,40.45,29.70,40.85';
+        // Yalova viewbox
+        $yalovaBox = '28.70,40.45,29.70,40.85'; // minLon,minLat,maxLon,maxLat
         $yalovaCenter = [40.6549, 29.2842];
 
-        // Sonucu doğrulayan yardımcılar
+        // Yardımcılar
         $withinYalova = function(array $addr) use ($il, $ilce): bool {
             $state  = mb_strtoupper($addr['state']  ?? '', 'UTF-8');
             $prov   = mb_strtoupper($addr['province'] ?? '', 'UTF-8');
@@ -58,10 +58,8 @@ class GeocodeAddress implements ShouldQueue
 
             $ilMatch = ($state === $ilU) || ($prov === $ilU);
             if ($ilceU === null) {
-                // Merkez ise şehri "YALOVA" kabul et
                 return $ilMatch && ($city === $ilU || $county === $ilU);
             }
-            // İlçe belirtilmişse county/city_district/district’ten biriyle uyuşsun
             return $ilMatch && in_array($ilceU, [$county, $dist, $city], true);
         };
 
@@ -73,7 +71,7 @@ class GeocodeAddress implements ShouldQueue
             return 2 * $R * asin(min(1, sqrt($a)));
         };
 
-        $saveIfValid = function(array $item) use ($a, $withinYalova, $haversineKm, $yalovaCenter): bool {
+        $saveIfValid = function(array $item, string $source, int $confidence, string $hash = null) use ($a, $withinYalova, $haversineKm, $yalovaCenter): bool {
             $lat = isset($item['lat']) ? (float)$item['lat'] : null;
             $lng = isset($item['lon']) ? (float)$item['lon'] : null;
             if (!$lat || !$lng) return false;
@@ -81,20 +79,27 @@ class GeocodeAddress implements ShouldQueue
             $addr = $item['address'] ?? [];
             if (!$withinYalova($addr)) return false;
 
-            // Yalova merkezine 35km’den uzaksa şüpheli (Eskihisar/İzmit sapmalarını keser)
+            // Yalova merkezine 35km’den uzaksa şüpheli
             $dist = $haversineKm($yalovaCenter[0], $yalovaCenter[1], $lat, $lng);
             if ($dist > 35) return false;
 
             $a->lat = $lat;
             $a->lng = $lng;
             $a->geocoded_at = now();
-            $a->geocode_source = 'nominatim';
-            $a->geocode_confidence = 90; // basit sabit
+            $a->geocode_source = $source;
+            $a->geocode_confidence = $confidence;
+            if ($hash) $a->geocode_hash = $hash;
             $a->saveQuietly();
+
+            Log::info('[GEOCODE] saved', ['id' => $a->id, 'src' => $source, 'lat' => $lat, 'lng' => $lng]);
             return true;
         };
 
-        // ---- 1) STRUCTURED REQUEST (street/city/state/postalcode) ----
+        // Hash (aynı tam adresi tekrar tekrar çağırmayı önlemek için)
+        $hashBase = implode('|', array_filter([$street, $ilce, $il, $postal, 'TR']));
+        $hash = sha1($hashBase);
+
+        // 1) Structured
         $structuredParams = [
             'format' => 'json',
             'limit'  => 1,
@@ -103,17 +108,16 @@ class GeocodeAddress implements ShouldQueue
             'state'   => $il,
             'street'  => $street,
         ];
-        // city/ county ayrımı
         if ($ilce) {
-            $structuredParams['city'] = $ilce; // TR’de çoğu zaman iş görüyor
+            $structuredParams['city'] = $ilce;
             $structuredParams['county'] = $ilce;
         } else {
-            $structuredParams['city'] = $il; // Merkez ise "city=Yalova"
+            $structuredParams['city'] = $il;
         }
         if ($postal) $structuredParams['postalcode'] = $postal;
 
         $resp = Http::withHeaders([
-                'User-Agent' => 'DukkanX/1.0 (varelci.i@gmail.com)',
+                'User-Agent' => 'DukkanX/1.0 (iletisim@ornek.com)',
                 'Accept-Language' => 'tr',
             ])
             ->timeout(15)
@@ -121,12 +125,11 @@ class GeocodeAddress implements ShouldQueue
 
         if ($resp->ok()) {
             $json = $resp->json();
-            if (is_array($json) && !empty($json[0]) && $saveIfValid($json[0])) {
-                return; // kaydedildi
-            }
+            if (is_array($json) && !empty($json[0]) && $saveIfValid($json[0], 'nominatim', 90, $hash)) return;
+            Log::warning('[GEOCODE] no-result-1', ['id' => $a->id, 'q' => $structuredParams]);
         }
 
-        // ---- 2) STRUCTURED (yalnızca city=Yalova + street + postalcode) ----
+        // 2) Structured (city=Yalova)
         $resp2 = Http::withHeaders([
                 'User-Agent' => 'DukkanX/1.0 (iletisim@ornek.com)',
                 'Accept-Language' => 'tr',
@@ -136,22 +139,21 @@ class GeocodeAddress implements ShouldQueue
                 'format' => 'json', 'limit' => 1, 'addressdetails' => 1,
                 'country' => 'Türkiye',
                 'state' => $il,
-                'city' => $il,       // Merkez kabul edip şehri Yalova tut
+                'city' => $il,
                 'street' => $street,
                 'postalcode' => $postal,
             ]));
 
         if ($resp2->ok()) {
             $json = $resp2->json();
-            if (is_array($json) && !empty($json[0]) && $saveIfValid($json[0])) {
-                return;
-            }
+            if (is_array($json) && !empty($json[0]) && $saveIfValid($json[0], 'nominatim', 80, $hash)) return;
+            Log::warning('[GEOCODE] no-result-2', ['id' => $a->id]);
         }
 
-        // ---- 3) FREEFORM + VIEWBOX (Yalova ile sınırla) ----
+        // 3) Freeform + viewbox
         $q = implode(', ', array_filter([$street, $ilce, $il, 'Türkiye']));
         $resp3 = Http::withHeaders([
-                'User-Agent' => 'DukkanX/1.0 (varelci.i@gmail.com)',
+                'User-Agent' => 'DukkanX/1.0 (iletisim@ornek.com)',
                 'Accept-Language' => 'tr',
             ])
             ->timeout(15)
@@ -167,27 +169,31 @@ class GeocodeAddress implements ShouldQueue
 
         if ($resp3->ok()) {
             $json = $resp3->json();
-            if (is_array($json) && !empty($json[0]) && $saveIfValid($json[0])) {
-                return;
-            }
+            if (is_array($json) && !empty($json[0]) && $saveIfValid($json[0], 'nominatim', 70, $hash)) return;
+            Log::warning('[GEOCODE] no-result-3', ['id' => $a->id, 'q' => $q]);
         }
 
-        // ---- Olmadı: ilçe merkezine fallback (bizim centroid tablosu/haritadaki ile eşleşik) ----
+        // 4) Fallback: ilçe centroid (İLÇE ADINI BÜYÜK HARFLE EŞLE!)
         $centroids = [
-            'Merkez'     => ['lat' => 40.655100, 'lng' => 29.277200],
-            'Çiftlikköy' => ['lat' => 40.684500, 'lng' => 29.320300],
-            'Altınova'   => ['lat' => 40.695000, 'lng' => 29.508000],
-            'Termal'     => ['lat' => 40.615000, 'lng' => 29.167000],
-            'Armutlu'    => ['lat' => 40.519000, 'lng' => 28.842000],
+            'MERKEZ'      => ['lat' => 40.655100, 'lng' => 29.277200],
+            'ÇİFTLİKKÖY'  => ['lat' => 40.684500, 'lng' => 29.320300],
+            'ALTINOVA'    => ['lat' => 40.695000, 'lng' => 29.508000],
+            'TERMAL'      => ['lat' => 40.615000, 'lng' => 29.167000],
+            'ARMUTLU'     => ['lat' => 40.519000, 'lng' => 28.842000],
         ];
-        $key = $ilce ?: 'Merkez';
+        $key = mb_strtoupper($ilce ?? 'Merkez', 'UTF-8');
         if (isset($centroids[$key])) {
             $a->lat = $centroids[$key]['lat'];
             $a->lng = $centroids[$key]['lng'];
             $a->geocoded_at = now();
             $a->geocode_source = 'centroid-fallback';
             $a->geocode_confidence = 50;
+            $a->geocode_hash = $hash;
             $a->saveQuietly();
+            Log::info('[GEOCODE] saved-fallback', ['id' => $a->id, 'key' => $key]);
+            return;
         }
+
+        Log::warning('[GEOCODE] all-attempts-failed', ['id' => $a->id]);
     }
 }

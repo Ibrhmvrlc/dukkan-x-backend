@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\SiparisController;
 use App\Http\Controllers\Api\TedarikciController;
 use App\Http\Controllers\Api\EkstreController;
 use App\Http\Controllers\Api\TahsilatController;
+use App\Http\Controllers\Api\YenilikController;
 use Maatwebsite\Excel\Facades\Excel;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -53,7 +54,9 @@ Route::middleware('jwt.auth')->group(function () {
         Route::apiResource('/musteriler', MusterilerController::class);
         Route::apiResource('tedarikciler', TedarikciController::class);
         Route::apiResource('/yetkililer', YetkililerController::class);
-        Route::apiResource('/musteriler.teslimat-adresleri', TeslimatAdresiController::class)->only(['store', 'update', 'destroy']);
+        Route::post('musteriler/{musteri}/teslimat-adresleri', [TeslimatAdresiController::class, 'store']);
+        Route::put('musteriler/{musteri}/teslimat-adresleri/{adres}', [TeslimatAdresiController::class, 'update']);
+        Route::delete('musteriler/{musteri}/teslimat-adresleri/{adres}', [TeslimatAdresiController::class, 'destroy']);
         
         Route::get('/musteriler/{musteri}/notlar', [MusteriNotController::class, 'index']);
         Route::post('/musteriler/{musteri}/notlar', [MusteriNotController::class, 'store']);
@@ -88,5 +91,10 @@ Route::middleware('jwt.auth')->group(function () {
         Route::get('/dashboard/monthly-sales', [DashboardController::class, 'monthlySales']);
         Route::get('/dashboard/monthly-collections', [DashboardController::class, 'monthlyCollections']);
         Route::get('/dashboard/yalova-delivery-points', [DashboardController::class, 'yalovaDeliveryPoints']); //farklı illerde farklılaştırılamalı
+
+         Route::get('/yenilikler', [YenilikController::class, 'index']);
+          Route::post('/yenilikler', [YenilikController::class, 'store']);
+        Route::put('/yenilikler/{yenilik}', [YenilikController::class, 'update']);
+        Route::delete('/yenilikler/{yenilik}', [YenilikController::class, 'destroy']);
     });
 });
