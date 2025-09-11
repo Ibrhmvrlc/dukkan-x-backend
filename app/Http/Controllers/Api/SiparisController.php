@@ -99,7 +99,7 @@ class SiparisController extends Controller
     }
 
     // POST /api/siparisler
-   public function store(Request $request)
+    public function store(Request $request)
     {
         $validated = $request->validate([
             'musteri_id'            => 'required|exists:musteriler,id',
@@ -119,32 +119,61 @@ class SiparisController extends Controller
 
             $siparis = Siparis::create([
                 'musteri_id'         => $validated['musteri_id'],
-                'teslimat_adresi_id' => $validated['teslimat_adresi_id'],
+                'teslimat_adresi_id' => $validated['teslimat_adres_id'] ?? $validated['teslimat_adresi_id'],
                 'yetkili_id'         => $validated['yetkili_id'],
                 'not'                => $validated['not'] ?? null,
                 'tarih'              => now(),
             ]);
 
-            $urunIds = collect($validated['urunler'])->pluck('urun_id')->all();
+            // === Stok kontrol + düşüm (kilitleyerek) ===
+            $lines = collect($validated['urunler']);
+            $urunIds = $lines->pluck('urun_id')->unique()->values();
+
+            // Ürünleri kilitle (yarış koşulları için)
+            $urunler = Urunler::whereIn('id', $urunIds)->lockForUpdate()->get()->keyBy('id');
+
+            // Önce tüm satırlarda yeterli stok var mı kontrol et
+            foreach ($lines as $item) {
+                $urun = $urunler[$item['urun_id']];
+                $adet = (int) $item['miktar'];
+
+                // stok_miktari NULL ise sınırsız kabul et
+                if (!is_null($urun->stok_miktari)) {
+                    if ($urun->stok_miktari < $adet) {
+                        abort(422, "Stok yetersiz: {$urun->isim} (elde: {$urun->stok_miktari}, gereken: {$adet})");
+                    }
+                }
+            }
+
+            // KDV haritası
             $kdvMap  = Urunler::whereIn('id', $urunIds)->pluck('kdv_orani', 'id');
 
+            // Pivot verisi ve stok düşümü
             $attachData = [];
-            foreach ($validated['urunler'] as $item) {
-                $urunId   = $item['urun_id'];
-                $urunKdv  = $kdvMap[$urunId] ?? 10;
-                $pivotKdv = $item['kdv'] ?? $urunKdv;
+            foreach ($lines as $item) {
+                $urunId   = (int) $item['urun_id'];
+                $adet     = (int) $item['miktar'];
+                $urunKdv  = (float) ($kdvMap[$urunId] ?? 10);
+                $pivotKdv = array_key_exists('kdv', $item) ? (float) $item['kdv'] : $urunKdv;
 
                 $attachData[$urunId] = [
-                    'adet'          => $item['miktar'],
-                    'birim_fiyat'   => $item['fiyat'],
+                    'adet'          => $adet,
+                    'birim_fiyat'   => (float) $item['fiyat'],
                     'iskonto_orani' => $musteriIskonto,
                     'kdv_orani'     => $pivotKdv,
                 ];
+
+                // stok düş
+                $urun = $urunler[$urunId];
+                if (!is_null($urun->stok_miktari)) {
+                    $urun->stok_miktari = $urun->stok_miktari - $adet;
+                    $urun->save();
+                }
             }
 
             $siparis->urunler()->attach($attachData);
 
-            // 🔴 Kritik satır: pivot değişti → toplamları hesapla ve kaydet
+            // Toplamları yeniden hesapla
             $siparis->recalcTotals()->save();
 
             return response()->json([
@@ -155,8 +184,7 @@ class SiparisController extends Controller
     }
 
 
-
-  public function show($id)
+    public function show($id)
     {
         $siparis = Siparis::with(['musteri', 'yetkili', 'teslimatAdresi', 'urunler'])
             ->findOrFail($id);
@@ -194,7 +222,9 @@ class SiparisController extends Controller
     public function update(Request $request, $id)
     {
         /** @var \App\Models\Siparis $siparis */
-        $siparis = Siparis::findOrFail($id);
+        $siparis = Siparis::with(['urunler' => function($q){
+            $q->withPivot(['adet','birim_fiyat','iskonto_orani','kdv_orani']);
+        }])->findOrFail($id);
 
         $validated = $request->validate([
             'tarih' => ['nullable','date'],
@@ -219,24 +249,72 @@ class SiparisController extends Controller
             ]));
             $siparis->save();
 
-            // Pivot eşleme (gönderildiyse)
-            if (array_key_exists('urunler', $validated)) {
-                $map = collect($validated['urunler'])->mapWithKeys(function ($u) {
-                    return [
-                        $u['urun_id'] => [
-                            'adet'          => $u['adet'],
-                            'birim_fiyat'   => $u['birim_fiyat'],
-                            'iskonto_orani' => $u['iskonto_orani'] ?? 0,
-                            'kdv_orani'     => $u['kdv_orani'] ?? 0,
-                        ]
-                    ];
-                })->toArray();
-
-                $siparis->urunler()->sync($map);
-
-                // 🔴 Kritik satır: pivot değişti → toplamları hesapla ve kaydet
+            if (!array_key_exists('urunler', $validated)) {
+                // sadece başlık güncellendiyse
                 $siparis->recalcTotals()->save();
+                return response()->json($siparis->fresh(['urunler','yetkili','teslimatAdresi']), 200);
             }
+
+            // Eski ve yeni satırları karşılaştır
+            $old = $siparis->urunler->mapWithKeys(function ($u) {
+                return [$u->id => (int)$u->pivot->adet];
+            }); // [urun_id => adet]
+
+            $newLines = collect($validated['urunler'])->mapWithKeys(function ($u) {
+                return [(int)$u['urun_id'] => [
+                    'adet'          => (int)$u['adet'],
+                    'birim_fiyat'   => (float)$u['birim_fiyat'],
+                    'iskonto_orani' => isset($u['iskonto_orani']) ? (float)$u['iskonto_orani'] : 0.0,
+                    'kdv_orani'     => isset($u['kdv_orani']) ? (float)$u['kdv_orani'] : 0.0,
+                ]];
+            });
+
+            $allIds = $old->keys()->merge($newLines->keys())->unique()->values();
+
+            // İlgili ürünleri kilitle
+            $urunler = Urunler::whereIn('id', $allIds)->lockForUpdate()->get()->keyBy('id');
+
+            // İlk tur: stok yeterlilik kontrolü (artacak miktarlar için)
+            foreach ($allIds as $pid) {
+                $prev  = (int) ($old[$pid] ?? 0);
+                $next  = (int) ($newLines[$pid]['adet'] ?? 0);
+                $delta = $next - $prev; // + ise stoktan düşülecek, - ise stok iade edilecek
+
+                if ($delta > 0) {
+                    $urun = $urunler[$pid];
+                    if (!is_null($urun->stok_miktari) && $urun->stok_miktari < $delta) {
+                        abort(422, "Stok yetersiz: {$urun->isim} (elde: {$urun->stok_miktari}, gereken ek: {$delta})");
+                    }
+                }
+            }
+
+            // İkinci tur: stok ayarı (önce düş, sonra iade yapmak fark etmez çünkü kilitli)
+            foreach ($allIds as $pid) {
+                $urun = $urunler[$pid];
+                $prev = (int) ($old[$pid] ?? 0);
+                $next = (int) ($newLines[$pid]['adet'] ?? 0);
+                $delta = $next - $prev;
+
+                if ($delta > 0) {
+                    // düş
+                    if (!is_null($urun->stok_miktari)) {
+                        $urun->stok_miktari -= $delta;
+                        $urun->save();
+                    }
+                } elseif ($delta < 0) {
+                    // iade
+                    if (!is_null($urun->stok_miktari)) {
+                        $urun->stok_miktari += abs($delta);
+                        $urun->save();
+                    }
+                }
+            }
+
+            // Pivot senkronu
+            $siparis->urunler()->sync($newLines->toArray());
+
+            // Toplamları yeniden hesapla
+            $siparis->recalcTotals()->save();
 
             $siparis->load(['urunler' => function($q) {
                 $q->withPivot(['adet','birim_fiyat','iskonto_orani','kdv_orani']);
@@ -246,13 +324,37 @@ class SiparisController extends Controller
         });
     }
 
-
-
     // DELETE /api/siparisler/{id}
     public function destroy($id)
     {
-        $siparis = Siparis::findOrFail($id);
-        $siparis->delete();
-        return response()->json(['message' => 'Sipariş silindi.']);
+        return DB::transaction(function () use ($id) {
+            /** @var \App\Models\Siparis $siparis */
+            $siparis = Siparis::with(['urunler' => function($q){
+                $q->withPivot(['adet']);
+            }])->findOrFail($id);
+
+            $lines = $siparis->urunler->mapWithKeys(fn($u) => [$u->id => (int)$u->pivot->adet]);
+            $ids   = $lines->keys();
+
+            // ürünleri kilitle
+            $urunler = Urunler::whereIn('id', $ids)->lockForUpdate()->get()->keyBy('id');
+
+            // stokları iade et
+            foreach ($ids as $pid) {
+                $urun = $urunler[$pid];
+                $adet = (int)$lines[$pid];
+
+                if (!is_null($urun->stok_miktari)) {
+                    $urun->stok_miktari += $adet;
+                    $urun->save();
+                }
+            }
+
+            // pivotu boşalt ve siparişi sil
+            $siparis->urunler()->detach();
+            $siparis->delete();
+
+            return response()->json(['message' => 'Sipariş silindi ve stoklar iade edildi.']);
+        });
     }
 }
