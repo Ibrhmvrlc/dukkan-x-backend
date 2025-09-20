@@ -80,26 +80,35 @@ class UrunController extends Controller
         return response()->json(['message' => 'Ürün başarıyla silindi.']);
     }
 
-    public function grafik($urunId)
+    public function grafik(Request $request, int $urunId)
     {
-        $siparisler = Siparis::where('urun_id', $urunId)->get();
+        // ?year=2025 verilirse onu, verilmezse içinde bulunduğumuz yılı kullan
+        $year = (int) ($request->query('year') ?: now()->year);
 
-        $aylikToplamlar = [];
+        // siparis_urun (adet) -> siparisler (tarih) join
+        $ayToplam = DB::table('siparis_urun')
+            ->join('siparisler', 'siparisler.id', '=', 'siparis_urun.siparis_id')
+            ->where('siparis_urun.urun_id', $urunId)
+            ->whereYear('siparisler.created_at', $year)
+            // ->where('siparisler.durum', 'tamamlandi') // (opsiyonel) iptal/iade vb. ayıklamak istersen
+            ->when(DB::getSchemaBuilder()->hasColumn('siparisler', 'deleted_at'), function($q){
+                $q->whereNull('siparisler.deleted_at'); // soft-delete’leri dışla
+            })
+            ->selectRaw('MONTH(siparisler.created_at) as ay, COALESCE(SUM(siparis_urun.adet),0) as toplam')
+            ->groupBy('ay')
+            ->pluck('toplam', 'ay') // [1 => 10, 3 => 5, ...]
+            ->toArray();
 
-        foreach ($siparisler as $siparis) {
-            $ay = (int) date('n', strtotime($siparis->created_at));
-            $adet = $siparis->adet ?? 0;
-
-            $aylikToplamlar[$ay] = ($aylikToplamlar[$ay] ?? 0) + $adet;
-        }
-
-        // Tüm aylar için sıfırla
+        // 1..12 tüm ayları doldur (olmayan ay 0)
         $veri = [];
         foreach (range(1, 12) as $ay) {
-            $veri[] = $aylikToplamlar[$ay] ?? 0;
+            $veri[] = (float) ($ayToplam[$ay] ?? 0);
         }
 
-        return response()->json(['data' => $veri]);
+        return response()->json([
+            'year' => $year,
+            'data' => $veri, // [Ocak..Aralık] 12 elemanlı dizi
+        ]);
     }
 
     public function bulkUpload(Request $request)
