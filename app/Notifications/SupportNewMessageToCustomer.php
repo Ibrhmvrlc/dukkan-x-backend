@@ -8,14 +8,13 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class SupportNewMessageToAdmin extends Notification implements ShouldQueue
+class SupportNewMessageToCustomer extends Notification implements ShouldQueue
 {
     use Queueable;
 
     public function __construct(public SupportMessage $message)
     {
-        // İstersen ayrı bir kuyruk adı:
-        $this->onQueue('mail');
+        $this->onQueue('mail'); // opsiyonel
     }
 
     public function via(object $notifiable): array
@@ -27,18 +26,16 @@ class SupportNewMessageToAdmin extends Notification implements ShouldQueue
     {
         $m = $this->message->loadMissing(['thread','sender']);
         $thread = $m->thread;
-        $sender = $m->sender;
 
         $impMap = ['info'=>'Bilgi','warning'=>'Uyarı','critical'=>'Kritik'];
         $imp = $impMap[$m->importance] ?? $m->importance;
 
         return (new MailMessage)
-            ->subject("📩 Destek #{$thread->id} • {$imp} • {$sender->name}")
+            ->subject("✉️ Destek #{$thread->id} • {$imp} • Yanıtınız var")
             ->greeting("Merhaba {$notifiable->name},")
-            ->line("Yeni bir destek mesajı var.")
-            ->line("Gönderen: {$sender->name} <{$sender->email}>")
+            ->line('Destek talebinize yeni bir yanıt var.')
             ->line("Önem: {$imp}")
-            ->line('Mesaj:')
+            ->line('Yanıt:')
             ->line($m->body)
             ->line('Bu e-posta otomatik gönderilmiştir.');
     }
