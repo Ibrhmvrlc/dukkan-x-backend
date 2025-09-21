@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\UrunController;
 use App\Http\Controllers\Api\SiparisController;
 use App\Http\Controllers\Api\TedarikciController;
 use App\Http\Controllers\Api\EkstreController;
+use App\Http\Controllers\Api\SupportMessageController;
+use App\Http\Controllers\Api\SupportThreadController;
 use App\Http\Controllers\Api\TahsilatController;
 use App\Http\Controllers\Api\YenilikController;
 use Maatwebsite\Excel\Facades\Excel;
@@ -92,9 +94,20 @@ Route::middleware('jwt.auth')->group(function () {
         Route::get('/dashboard/monthly-collections', [DashboardController::class, 'monthlyCollections']);
         Route::get('/dashboard/yalova-delivery-points', [DashboardController::class, 'yalovaDeliveryPoints']); //farklı illerde farklılaştırılamalı
 
-         Route::get('/yenilikler', [YenilikController::class, 'index']);
-          Route::post('/yenilikler', [YenilikController::class, 'store']);
+        Route::get('/yenilikler', [YenilikController::class, 'index']);
+        Route::post('/yenilikler', [YenilikController::class, 'store']);
         Route::put('/yenilikler/{yenilik}', [YenilikController::class, 'update']);
         Route::delete('/yenilikler/{yenilik}', [YenilikController::class, 'destroy']);
+
+        Route::prefix('/support')->group(function () {
+            Route::get('/threads', [SupportThreadController::class, 'index']);
+            Route::post('/threads', [SupportThreadController::class, 'store']);
+            Route::get('/threads/{thread}', [SupportThreadController::class, 'show'])->whereNumber('thread');
+            Route::patch('/threads/{thread}', [SupportThreadController::class, 'update'])->whereNumber('thread');
+
+            Route::get('/threads/{thread}/messages', [SupportMessageController::class, 'index'])->whereNumber('thread');
+            Route::post('/threads/{thread}/messages', [SupportMessageController::class, 'store'])->whereNumber('thread');
+            Route::patch('/messages/{message}/read', [SupportMessageController::class, 'markRead'])->whereNumber('message');
+        });
     });
 });
